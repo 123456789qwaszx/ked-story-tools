@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="St.App.MainWindow"
+        Title="ked-story-tools"
+        Width="1400" Height="860"
+        MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen">
+    <!-- 뼈대만 XAML이다. 내용은 MainWindow.*.cs가 코드로 채운다 — 형제 툴과 같은 방식.
+         K3에는 셸뿐이다: 줄 찾기 · 종류 필터 · 스텝 목록 · 타임라인은 K4에서 선다(docs/PLAN.md §4.5 · §4.6). -->
+    <DockPanel>
+        <Border DockPanel.Dock="Bottom" Padding="8,4" BorderThickness="0,1,0,0" BorderBrush="#33888888">
+            <TextBlock x:Name="StatusText" FontSize="11" Opacity="0.8" />
+        </Border>
+        <Border x:Name="Shell" />
+    </DockPanel>
+</Window>
