@@ -91,4 +91,4 @@
 
 **뒤따르는 일**(이 문서 5절 그대로) — 카드의 `class` → 종류 표(K1 뒤) · 카드 출처 기록(P5).
 
-**2026-11-22 밤** — 위 둘의 배정 · 형식을 소유자가 정했다(Yarn이 커맨드 줄 끝의 주석을 받는 것을 확인). 한 것과 남은 것(K1 · K2를 포크에 들이기)은 작업공간 `docs/handoff-1122-kinds.md`.
+**2026-11-22 밤** — 위 둘의 배정 · 형식을 소유자가 정했다(Yarn이 커맨드 줄 끝의 주석을 받는 것을 확인). K1 · K2도 포크에 들였다(`c39986c2` — 포크의 표는 88줄: 공개 85 + `cutin_panel` · `messenger_open` · `messenger_close`. 포크의 `command-specs.json`은 작업공간 `runtime/ExportedTuning/`). 한 것과 소유자가 볼 것은 작업공간 `docs/handoff-1122-kinds.md`.
