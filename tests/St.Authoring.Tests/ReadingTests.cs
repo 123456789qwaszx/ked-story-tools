@@ -208,6 +208,11 @@ public class ReadingTests
 
         Assert.Equal(new[] { "슬롯 s2", "표정 03", "길이 13fr" }, command.Args.Select(a => $"{a.Label} {a.Value}"));
         Assert.Equal(new[] { true, true, false }, command.Args.Select(a => a.Written));
+
+        // 생략값이 없는 칸도 빈 채로 든다 — 화면이 거기에 적을 수 있다.
+        string emoji = Scripts.Sample.Replace("emoji s2 star", "emoji_off s2");
+        OutlineCommand off = LineOutline.Build(emoji, Scripts.Read(emoji, "t1"), Director).Steps[4].Commands[0];
+        Assert.Equal(new[] { "s2", "" }, off.Args.Select(a => a.Value));
     }
 
     [Fact]

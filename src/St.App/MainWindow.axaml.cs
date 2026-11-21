@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Ked.Presentation.Core;
 using St.App.Views;
+using St.Authoring.Editing;
 using St.Authoring.Reading;
 using St.Authoring.Settings;
 
@@ -10,9 +11,9 @@ namespace St.App;
 
 /// <summary>
 /// 셸 — 위에 대본 열기, 왼쪽에 챕터 · 장면 · 에피소드 고르기와 줄 찾기 · 종류 필터, 가운데에 고른 줄의 스텝 목록,
-/// 아래에 상태(docs/PLAN.md §4.5 · §4.7).
-/// K4-1은 읽는 화면이다 — 고치지 않는다. 고치는 일(K4-2부터)은 <c>St.Authoring</c>의 조작(<c>LineEdit</c>)을 지난다.
-/// 맡은 일별 partial: <c>Files</c>(열기) · <c>Library</c>(챕터 · 장면 · 줄 목록) · <c>Line</c>(스텝 목록).
+/// 오른쪽에 고른 커맨드 · 스텝의 칸, 아래에 상태(docs/PLAN.md §4.5 · §4.7).
+/// 고치는 일은 모두 <see cref="EditSession"/>을 지난다 — 조작(<c>LineEdit</c>) 하나가 되돌리기 한 칸이고, 바로 파일에 쓴다(U1).
+/// 맡은 일별 partial: <c>Files</c>(열기 · 되돌리기) · <c>Library</c>(챕터 · 장면 · 줄 목록) · <c>Line</c>(스텝 목록) · <c>Edit</c>(칸 고치기).
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -23,7 +24,10 @@ public partial class MainWindow : Window
     private readonly ToolSettings _settings;
     private readonly TextBlock _status = new() { FontSize = 11, Opacity = 0.8 };
 
-    private ScriptLibrary? _library;
+    private EditSession? _session;
+
+    /// <summary>열어 둔 대본 — 고칠 때마다 새로 읽은 것이다.</summary>
+    private ScriptLibrary? Library => _session?.Library;
 
     public MainWindow() : this(ToolSettings.DefaultPath())
     {
@@ -46,16 +50,22 @@ public partial class MainWindow : Window
         DockPanel.SetDock(bottom, Dock.Bottom);
         shell.Children.Add(bottom);
 
-        Grid body = new() { ColumnDefinitions = new ColumnDefinitions("380,4,*") };
-        Control left = BuildLibraryPanel();
-        GridSplitter splitter = new() { ResizeDirection = GridResizeDirection.Columns, Background = Avalonia.Media.Brushes.Transparent };
-        Control center = BuildLinePanel();
-        Grid.SetColumn(left, 0);
-        Grid.SetColumn(splitter, 1);
-        Grid.SetColumn(center, 2);
-        body.Children.Add(left);
-        body.Children.Add(splitter);
-        body.Children.Add(center);
+        Grid body = new() { ColumnDefinitions = new ColumnDefinitions("380,4,*,4,340") };
+        Control[] columns =
+        [
+            BuildLibraryPanel(),
+            new GridSplitter { ResizeDirection = GridResizeDirection.Columns, Background = Avalonia.Media.Brushes.Transparent },
+            BuildLinePanel(),
+            new GridSplitter { ResizeDirection = GridResizeDirection.Columns, Background = Avalonia.Media.Brushes.Transparent },
+            BuildInspectorPanel(),
+        ];
+
+        for (int i = 0; i < columns.Length; i++)
+        {
+            Grid.SetColumn(columns[i], i);
+            body.Children.Add(columns[i]);
+        }
+
         shell.Children.Add(body);
 
         Root.Child = shell;

@@ -3,8 +3,14 @@ using St.Authoring.Editing;
 
 namespace St.Authoring.Reading;
 
-/// <summary>커맨드의 인자 칸 하나 — 화면에 보이는 이름과 값. 적지 않아 생략값으로 가는 칸은 <see cref="Written"/>이 거짓이다.</summary>
-public sealed record OutlineArg(string Name, string Label, ArgKind Kind, string Value, bool Written);
+/// <summary>
+/// 커맨드의 인자 칸 하나 — 화면에 보이는 이름과 값, 고칠 때 쓸 명세.
+/// 적지 않아 생략값으로 가는 칸은 <see cref="Written"/>이 거짓이고 <see cref="Value"/>가 생략값이다(생략값도 없으면 빈 글).
+/// </summary>
+public sealed record OutlineArg(string Name, string Label, string Value, bool Written, CommandArgSpec Spec)
+{
+    public ArgKind Kind => Spec.Kind;
+}
 
 /// <summary>스텝에 보이는 커맨드 하나. 주소로 고친다(K4-2).</summary>
 public sealed record OutlineCommand(
@@ -103,8 +109,8 @@ public sealed class LineOutline
 
                 commands.Add(new OutlineCommand(
                     address, command.Name, command.Spec.Summary, command.Spec.Kind, command.Delay, command.Duration,
-                    command.Bound.Where(b => !string.IsNullOrEmpty(b.Value))
-                        .Select(b => new OutlineArg(b.Spec.Name, b.Spec.Label, b.Spec.Kind, b.Value, b.Token is not null))
+                    command.Bound
+                        .Select(b => new OutlineArg(b.Spec.Name, b.Spec.Label, b.Value ?? string.Empty, b.Token is not null, b.Spec))
                         .ToList()));
             }
 

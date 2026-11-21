@@ -6,6 +6,17 @@ namespace St.Authoring.Reading;
 /// <summary>초를 화면의 글로 — 프레임(30fps)에 맞아떨어지면 프레임을 함께 적는다. 타임라인의 눈금이 프레임이다.</summary>
 public static class TimeText
 {
+    /// <summary>초를 시간 토큰으로 — 프레임에 맞아떨어지면 <c>15fr</c>, 아니면 <c>0.37s</c>. 고치는 칸에 적혀 있는 글이다.</summary>
+    public static string Token(float seconds)
+    {
+        float frames = seconds * DurationToken.FramesPerSecond;
+        float rounded = MathF.Round(frames);
+
+        return MathF.Abs(frames - rounded) < 0.001f
+            ? rounded.ToString("0", CultureInfo.InvariantCulture) + "fr"
+            : seconds.ToString("0.####", CultureInfo.InvariantCulture) + "s";
+    }
+
     /// <summary><c>0.5s · 15fr</c>, 프레임에 맞지 않으면 <c>0.37s</c>.</summary>
     public static string Format(float seconds)
     {

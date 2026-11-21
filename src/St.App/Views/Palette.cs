@@ -15,6 +15,8 @@ internal static class Palette
     public static readonly IBrush Dim = Brush.Parse("#9AA0A6");
     public static readonly IBrush Faint = Brush.Parse("#6B7076");
     public static readonly IBrush Warning = Brush.Parse("#E0B15A");
+    public static readonly IBrush Edited = Brush.Parse("#6FCF97");
+    public static readonly IBrush Picked = Brush.Parse("#334A90D9");
 
     public static readonly FontFamily Mono = new("Cascadia Mono,Consolas,Menlo,monospace");
 

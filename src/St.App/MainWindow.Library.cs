@@ -6,6 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Ked.Presentation.Core;
 using St.App.Views;
+using St.Authoring.Editing;
 using St.Authoring.Reading;
 
 namespace St.App;
@@ -34,8 +35,8 @@ public partial class MainWindow
 
     /// <summary>고른 챕터. 대본을 열지 않았으면 null.</summary>
     internal StoryChapter? Chapter
-        => _library is not null && _chapters.SelectedIndex >= 0 && _chapters.SelectedIndex < _library.Chapters.Count
-            ? _library.Chapters[_chapters.SelectedIndex]
+        => Library is not null && _chapters.SelectedIndex >= 0 && _chapters.SelectedIndex < Library.Chapters.Count
+            ? Library.Chapters[_chapters.SelectedIndex]
             : null;
 
     /// <summary>고른 장면 — 그 장면의 에피소드가 한 번에 목록에 선다.</summary>
@@ -70,7 +71,7 @@ public partial class MainWindow
             (item, _) => item switch
             {
                 EpisodeHeader header => BuildEpisodeRow(header),
-                LibraryLine line => BuildLineRow(line),
+                LibraryLine line => BuildLineRow(line, _session?.IsEdited(line) == true),
                 _ => new Control(),
             },
             supportsRecycling: false);
@@ -146,8 +147,8 @@ public partial class MainWindow
 
         try
         {
-            _chapters.ItemsSource = _library?.Chapters.Select(c => $"{c.Name}  ·  장면 {c.Scenes.Count}").ToList() ?? [];
-            _chapters.SelectedIndex = _library is { Chapters.Count: > 0 } ? 0 : -1;
+            _chapters.ItemsSource = Library?.Chapters.Select(c => $"{c.Name}  ·  장면 {c.Scenes.Count}").ToList() ?? [];
+            _chapters.SelectedIndex = Library is { Chapters.Count: > 0 } ? 0 : -1;
             FillScenes();
         }
         finally
@@ -200,19 +201,60 @@ public partial class MainWindow
         RefreshLibrary();
     }
 
-    private void FillScenes()
+    private void FillScenes(string? keepScene = null, string? keepEpisode = null)
     {
         _scenes.ItemsSource = Chapter?.Scenes.Select(s => $"{s.Name}  ·  에피소드 {s.Episodes.Count} · {s.LineCount}줄").ToList() ?? [];
-        _scenes.SelectedIndex = Chapter is { Scenes.Count: > 0 } ? 0 : -1;
-        FillEpisodes();
+
+        int kept = keepScene is null ? -1 : Chapter?.Scenes.ToList().FindIndex(s => s.Id == keepScene) ?? -1;
+        _scenes.SelectedIndex = kept >= 0 ? kept : Chapter is { Scenes.Count: > 0 } ? 0 : -1;
+        FillEpisodes(kept >= 0 ? keepEpisode : null);
     }
 
-    private void FillEpisodes()
+    private void FillEpisodes(string? keepEpisode = null)
     {
         List<string> names = ["전체"];
         names.AddRange(Scene?.Episodes.Select(e => $"{e.Title}  ·  {(e.Missing ? "대본에 없다" : $"{e.Lines.Count}줄")}") ?? []);
         _episodes.ItemsSource = names;
-        _episodes.SelectedIndex = 0;
+
+        int kept = keepEpisode is null ? -1 : Scene?.Episodes.ToList().FindIndex(e => e.Id == keepEpisode) ?? -1;
+        _episodes.SelectedIndex = kept + 1;
+    }
+
+    /// <summary>
+    /// 대본을 새로 읽었다(고쳤거나 · 되돌렸거나 · 바깥에서 바뀌었다) — 고르고 있던 챕터 · 장면 · 에피소드 · 줄을 그대로 다시 고른다.
+    /// </summary>
+    private void ReloadKeepingSelection()
+    {
+        string? chapter = Chapter?.Id;
+        string? scene = Scene?.Id;
+        string? episode = Episode?.Id;
+        string? line = (_lines.SelectedItem as LibraryLine)?.Id;
+
+        // 목록을 갈아 끼우는 동안 고른 줄이 잠깐 비고, 그때 가운데가 고른 커맨드를 놓는다 — 쥐고 있다가 돌려준다.
+        (CommandAddress? command, string? anchor, string? shown) = (PickedCommand, PickedAnchor, _shownLine);
+
+        _refreshing = true;
+
+        try
+        {
+            _chapters.ItemsSource = Library?.Chapters.Select(c => $"{c.Name}  ·  장면 {c.Scenes.Count}").ToList() ?? [];
+
+            int kept = chapter is null ? -1 : Library?.Chapters.ToList().FindIndex(c => c.Id == chapter) ?? -1;
+            _chapters.SelectedIndex = kept >= 0 ? kept : Library is { Chapters.Count: > 0 } ? 0 : -1;
+            FillScenes(kept >= 0 ? scene : null, episode);
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        RefreshLibrary();
+
+        if (line is not null)
+        {
+            (PickedCommand, PickedAnchor, _shownLine) = (command, anchor, shown);
+            SelectLine(line);
+        }
     }
 
     /// <summary>고른 장면을 찾기와 필터로 걸러 목록을 다시 채운다. 고른 줄이 남아 있으면 그대로 고른 채다.</summary>
@@ -245,12 +287,13 @@ public partial class MainWindow
 
             int shown = ListedEpisodes.Sum(e => e.Lines.Count);
             _listCount.Text = scene is null ? string.Empty : $"{shown}줄 / 이 장면 {scene.LineCount}줄 · 에피소드 {ListedEpisodes.Count}/{scene.Episodes.Count}";
-            _status.Text = _library switch
+            _status.Text = Library switch
             {
                 null => "대본 폴더를 연다 — 챕터와 장면을 고르면 그 장면의 에피소드가 한 번에 선다",
-                { Problems.Count: > 0 } => $"문제 {_library.Problems.Count}개 — {_library.Problems[0]}",
-                _ => $"{_library.Root} — 챕터 {_library.Chapters.Count}개 · 대사 줄 {_library.LineCount}개",
+                { Problems.Count: > 0 } => $"문제 {Library.Problems.Count}개 — {Library.Problems[0]}",
+                _ => $"{Library.Root} — 챕터 {Library.Chapters.Count}개 · 대사 줄 {Library.LineCount}개",
             };
+            RefreshUndoButtons();
         }
         finally
         {
@@ -286,7 +329,7 @@ public partial class MainWindow
         };
     }
 
-    private static Control BuildLineRow(LibraryLine line)
+    private static Control BuildLineRow(LibraryLine line, bool edited)
     {
         string body = line.Read.Body.Length <= ExcerptLength ? line.Read.Body : string.Concat(line.Read.Body.AsSpan(0, ExcerptLength), "…");
 
@@ -331,6 +374,11 @@ public partial class MainWindow
             second.Children.Add(new TextBlock { Text = "읽기만", FontSize = 11, Foreground = Palette.Warning });
         }
 
+        if (edited)
+        {
+            second.Children.Add(new TextBlock { Text = "● 고침", FontSize = 11, Foreground = Palette.Edited });
+        }
+
         return new StackPanel { Spacing = 2, Margin = new Thickness(0, 2), Children = { first, second } };
     }
 
@@ -339,7 +387,7 @@ public partial class MainWindow
     /// <summary>챕터를 Id로 고른다. 없으면 false.</summary>
     internal bool SelectChapter(string chapterId)
     {
-        int index = _library?.Chapters.ToList().FindIndex(c => c.Id == chapterId) ?? -1;
+        int index = Library?.Chapters.ToList().FindIndex(c => c.Id == chapterId) ?? -1;
         _chapters.SelectedIndex = index;
         return index >= 0;
     }

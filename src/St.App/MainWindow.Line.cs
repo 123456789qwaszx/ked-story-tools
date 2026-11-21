@@ -1,9 +1,11 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Ked.Presentation.Core;
 using St.App.Views;
+using St.Authoring.Editing;
 using St.Authoring.Reading;
 
 namespace St.App;
@@ -12,8 +14,16 @@ public partial class MainWindow
 {
     private readonly StackPanel _lineHost = new() { Margin = new Thickness(18, 14), Spacing = 10 };
 
+    private string? _shownLine;
+
     /// <summary>가운데에 펴 보인 줄. 고른 줄이 없으면 null.</summary>
     internal LineOutline? ShownOutline { get; private set; }
+
+    /// <summary>가운데에서 고른 커맨드 — 오른쪽에서 그 칸을 고친다.</summary>
+    internal CommandAddress? PickedCommand { get; private set; }
+
+    /// <summary>가운데에서 고른 스텝(앵커) — 오른쪽에서 그 간격을 고친다. 커맨드를 고르면 null이다.</summary>
+    internal string? PickedAnchor { get; private set; }
 
     private Control BuildLinePanel()
         => new Border
@@ -30,18 +40,45 @@ public partial class MainWindow
 
         if (_lines.SelectedItem is not LibraryLine line)
         {
+            _shownLine = null;
+            PickedCommand = null;
+            PickedAnchor = null;
+
             _lineHost.Children.Add(new TextBlock
             {
-                Text = _library is null ? "대본 폴더를 열면 챕터와 장면이 왼쪽에 선다." : "왼쪽에서 줄을 고른다.",
+                Text = Library is null ? "대본 폴더를 열면 챕터와 장면이 왼쪽에 선다." : "왼쪽에서 줄을 고른다.",
                 Foreground = Palette.Dim,
                 Margin = new Thickness(0, 40, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center,
             });
+            RefreshInspector();
             return;
         }
 
         LineOutline outline = LineOutline.Build(line.File.Script.Text, line.Read, Kinds);
         ShownOutline = outline;
+
+        // 다른 줄로 옮겼으면 고른 것을 놓는다. 같은 줄이면(고친 뒤 다시 읽었다) 그대로 쥔다 —
+        // 다만 사라졌거나 필터에 가려진 것은 놓는다.
+        string key = $"{line.File.Script.Path}|{line.Read.LineId}";
+
+        if (key != _shownLine)
+        {
+            PickedCommand = null;
+            PickedAnchor = null;
+        }
+
+        _shownLine = key;
+
+        if (PickedCommand is { } picked && !outline.Steps.Any(s => s.Commands.Any(c => c.Address == picked)))
+        {
+            PickedCommand = null;
+        }
+
+        if (PickedAnchor is { } anchor && outline.Steps.All(s => s.Anchor != anchor))
+        {
+            PickedAnchor = null;
+        }
 
         _lineHost.Children.Add(BuildLineHeader(line, outline));
 
@@ -54,6 +91,8 @@ public partial class MainWindow
         {
             _lineHost.Children.Add(new TextBlock { Text = $"문제 — {problem}", Foreground = Palette.Warning, FontSize = 12, TextWrapping = TextWrapping.Wrap });
         }
+
+        RefreshInspector();
     }
 
     private static Control BuildLineHeader(LibraryLine line, LineOutline outline)
@@ -89,7 +128,7 @@ public partial class MainWindow
         return header;
     }
 
-    private static Control BuildStep(OutlineStep step)
+    private Control BuildStep(OutlineStep step)
     {
         StackPanel head = new() { Orientation = Orientation.Horizontal, Spacing = 8 };
         head.Children.Add(Palette.Chip(step.Anchor, font: Palette.Mono));
@@ -105,7 +144,8 @@ public partial class MainWindow
             head.Children.Add(Palette.Chip($"간격 {TimeText.Format(gap)}", Palette.Dim));
         }
 
-        StackPanel block = new() { Spacing = 3, Children = { head } };
+        StackPanel block = new() { Spacing = 3 };
+        block.Children.Add(Pickable(head, PickedCommand is null && PickedAnchor == step.Anchor, () => PickStep(step.Anchor)));
 
         foreach (OutlineCommand command in step.Commands)
         {
@@ -137,7 +177,7 @@ public partial class MainWindow
         };
     }
 
-    private static Control BuildCommand(OutlineCommand command)
+    private Control BuildCommand(OutlineCommand command)
     {
         StackPanel row = new() { Orientation = Orientation.Horizontal, Spacing = 8, Margin = new Thickness(10, 0, 0, 0) };
 
@@ -153,14 +193,48 @@ public partial class MainWindow
         });
         row.Children.Add(new TextBlock { Text = command.Name, Width = 130, FontFamily = Palette.Mono, FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
 
-        foreach (OutlineArg arg in command.Args)
+        foreach (OutlineArg arg in command.Args.Where(a => a.Value.Length > 0))
         {
             // 적지 않아 생략값으로 가는 칸은 흐리게 — 값은 같지만 대본에는 없다.
             row.Children.Add(Palette.Chip($"{arg.Label} {arg.Value}", arg.Written ? null : Palette.Faint, arg.Written ? null : Brushes.Transparent));
         }
 
-        ToolTip.SetTip(row, $"{command.Summary}\n{command.Address}");
-        return row;
+        Control pickable = Pickable(row, PickedCommand == command.Address, () => PickCommand(command.Address));
+        ToolTip.SetTip(pickable, command.Summary);
+        return pickable;
+    }
+
+    /// <summary>눌러 고르는 줄 — 고른 것은 바탕이 칠해진다.</summary>
+    private static Control Pickable(Control content, bool picked, Action pick)
+    {
+        Border border = new()
+        {
+            // 투명한 바탕이 있어야 빈 곳을 눌러도 잡힌다.
+            Background = picked ? Palette.Picked : Brushes.Transparent,
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(4, 2),
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Child = content,
+        };
+
+        border.PointerPressed += (_, _) => pick();
+        return border;
+    }
+
+    private void PickCommand(CommandAddress address)
+    {
+        PickedCommand = address;
+        PickedAnchor = null;
+        _editMessage = null;
+        ShowSelectedLine();
+    }
+
+    private void PickStep(string anchor)
+    {
+        PickedCommand = null;
+        PickedAnchor = anchor;
+        _editMessage = null;
+        ShowSelectedLine();
     }
 
     private static string AnchorLabel(LineAnchorKind kind) => kind switch
