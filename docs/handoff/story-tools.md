@@ -40,3 +40,18 @@
 ## 4. 하지 않는 것
 
 계획서 §10. 특히 K5(런타임 연결)는 첫 판을 써 본 뒤에 정한다.
+
+## 5. K3에서 한 것 (2026-11-22)
+
+지은 것과 정한 것은 계획서 §2.2(Q1 ~ Q6) · §4.3, 쓰는 법은 [`../CLI.md`](../CLI.md). K4의 차례와 시작하며 정할 것(U1 ~ U4)은 계획서 §2.3의 제안이다.
+
+- 뼈대 — `KedStoryTools.sln`: 코어 사본(`src/Ked.Presentation.Core` — 런타임 `dev` `c39986c2`, `vendoring.md`) → `St.Authoring` → `St.App`(셸뿐) + `St.Cli`(`st`).
+- 줄 고치기 — 조작 다섯과 되돌리기. 시험은 `tests/St.Authoring.Tests`(지어낸 대본 + 런타임의 데모 대본).
+- **확인하지 못한 것** — 이 세션의 셸에는 NuGet이 막혀 있다. 코어 사본 · `St.Authoring` · `St.Cli`는 진짜 프로젝트 파일로 빌드했고(경고 0), `St.Authoring.Tests`의 시험 70개는 xunit을 흉내 낸 임시 러너로 돌려 모두 지났다. **`St.App` · `St.App.Tests` · `Ked.Presentation.Core.Tests`는 빌드해 보지 못했다** — 소유자가 `dotnet build` · `dotnet test`로 확인한다.
+
+K4를 시작하는 세션이 알 것:
+
+- 화면은 `LineEditor` · `StagingEditor` · `ScriptSet`을 부른다 — yarn을 직접 쓰지 않는다. 화면에 필요한 읽기(줄 · 스텝 · 칸)는 코어의 `YarnLineReader` · `LineTimetable` 그대로다.
+- 앵커의 목록은 `LineEditor.Anchors` — 줄 읽기의 스텝에는 커맨드나 간격이 있는 앵커만 오른다.
+- 데모 대본에서 고칠 수 있는 줄은 `ln_k7inl2cm` 하나다 — 나머지 새 표기 줄에는 `#line:`이 없고(계획서 U4), 태그가 있는 줄은 옛 표기다.
+- 카드의 종류 표는 작업공간 `catalog/kinds.json`에, 카드의 출처는 커맨드 줄 끝의 주석(`// card:E04` — P5)에 있다. 줄 고치기는 그 주석을 지킨다.
