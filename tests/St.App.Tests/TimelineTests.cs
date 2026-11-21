@@ -1,0 +1,242 @@
+using Avalonia;
+using Ked.Presentation.Core;
+using St.App.Views;
+using St.Authoring.Reading;
+
+namespace St.App.Tests;
+
+/// <summary>타임라인(K4-4) — 자리 셈(화면 없이)과, 끌어 고친 것이 파일에 쓰이는 것.</summary>
+public class TimelineTests
+{
+    // 지어낸 대본. in: fade_out(0.5초) · 기다림 0.5초 · face — 간격 1초. start: 겹치는 둘. a: face_swap.
+    private const string Script =
+        "title: T\n---\n" +
+        "<<at in fade_out s1 15fr>>\n<<at in pause 15fr>>\n<<at in face s2 05>>\n<<gap in 1s>>\n" +
+        "<<at start move_by s1 1u 0u 30fr>>\n<<at start fade_in s1 15fr>>\n<<at start shot_zoom 1.2 0.4s>>\n" +
+        "<<at a face_swap s2 03>>\n<<at a motion s2 nod>>\n" +
+        "가: [beat=in/]하나 둘 셋 넷 [beat=a/]다섯 여섯 #line:t1\n\n" +
+        "<<fade_in s1 10fr>>\n나: 옛 표기 #line:t2\n===\n";
+
+    private static readonly CommandKind[] Tracks = MainWindow.DirectorKinds;
+
+    private static LineTimeline Timeline()
+        => LineTimeline.Build(
+            YarnLineReader.Read(Script, "t1"), Tracks.ToHashSet(), new TypewriterPacing { UnitsPerSecond = 20f }, ClipLengths.None);
+
+    private static (MainWindow Window, string Path) Open()
+    {
+        string dir = Directory.CreateTempSubdirectory("st-timeline-").FullName;
+        string path = Path.Combine(dir, "a.yarn");
+        File.WriteAllText(path, Script);
+        File.WriteAllText(Path.Combine(dir, "motions.json"), """{ "schema": "motions/2", "motions": [ { "name": "nod", "duration": 0.5 } ] }""");
+
+        MainWindow window = new(Path.Combine(Directory.CreateTempSubdirectory("st-timeline-set-").FullName, "settings.json"));
+        window.Show();
+        window.OpenPath(dir);
+        window.SelectLine("t1");
+        return (window, path);
+    }
+
+    // ── 자리 셈 ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 시각과_가로_좌표가_오간다()
+    {
+        TimelineLayout layout = new(Timeline(), Tracks, 1000);
+
+        Assert.Equal(TimelineLayout.LabelWidth, layout.X(0f), 3);
+        Assert.Equal(1.5f, layout.Seconds(layout.X(1.5f)), 3);
+        Assert.Equal(0f, layout.Seconds(10), 3);
+
+        // 줄의 길이가 폭 안에 들어온다.
+        Assert.True(layout.X(layout.Timeline.End) <= 1000 - TimelineLayout.RightMargin + 0.001);
+    }
+
+    [Fact]
+    public void 같은_트랙에서_겹치는_막대는_줄을_나눠_선다()
+    {
+        LineTimeline timeline = Timeline();
+        TimelineLayout layout = new(timeline, Tracks, 1000);
+
+        // start의 move_by(1초)와 fade_in(0.5초)은 같은 때에 시작하는 자리와 구도다.
+        int moveBy = timeline.Bars.ToList().FindIndex(b => b.Name == "move_by");
+        int fadeIn = timeline.Bars.ToList().FindIndex(b => b.Name == "fade_in");
+
+        Assert.Equal(layout.BarRect(moveBy).Left, layout.BarRect(fadeIn).Left, 3);
+        Assert.NotEqual(layout.BarRect(moveBy).Top, layout.BarRect(fadeIn).Top);
+        Assert.False(layout.BarRect(moveBy).Intersects(layout.BarRect(fadeIn)));
+
+        // 트랙은 서로 겹치지 않고, 막대는 제 종류의 트랙 안에 선다.
+        (double top, double height) = layout.Track(CommandKind.Placement);
+        Assert.True(layout.BarRect(moveBy).Top >= top && layout.BarRect(moveBy).Bottom <= top + height);
+        Assert.True(layout.Track(CommandKind.Camera).Top + layout.Track(CommandKind.Camera).Height <= top);
+    }
+
+    [Fact]
+    public void 길이를_모르는_커맨드는_점의_폭으로_서고_끝을_잡을_수_없다()
+    {
+        LineTimeline timeline = Timeline();
+        TimelineLayout layout = new(timeline, Tracks, 1000);
+        int face = timeline.Bars.ToList().FindIndex(b => b.Name == "face");
+        Rect rect = layout.BarRect(face);
+
+        Assert.Equal(TimelineLayout.PointWidth, rect.Width, 3);
+        Assert.Equal(new TimelineHit(TimelineHitKind.Bar, face), layout.HitTest(new Point(rect.Right - 1, rect.Center.Y)));
+    }
+
+    [Fact]
+    public void 막대의_몸과_끝과_세로줄을_가려_잡는다()
+    {
+        LineTimeline timeline = Timeline();
+        TimelineLayout layout = new(timeline, Tracks, 1000);
+        int fadeOut = timeline.Bars.ToList().FindIndex(b => b.Name == "fade_out");
+        Rect rect = layout.BarRect(fadeOut);
+
+        Assert.Equal(new TimelineHit(TimelineHitKind.Bar, fadeOut), layout.HitTest(new Point(rect.Left + 3, rect.Center.Y)));
+        Assert.Equal(new TimelineHit(TimelineHitKind.BarEnd, fadeOut), layout.HitTest(new Point(rect.Right - 2, rect.Center.Y)));
+
+        // 눈금에서는 세로줄만 잡힌다 — start(둘째 앵커). 첫 앵커는 끌 것이 없다.
+        Assert.Equal(new TimelineHit(TimelineHitKind.Anchor, 1), layout.HitTest(new Point(layout.X(timeline.Anchors[1].Open), 5)));
+        Assert.Equal(TimelineHit.None, layout.HitTest(new Point(layout.X(timeline.Anchors[0].Open), 5)));
+        Assert.Equal(TimelineHitKind.Ready, layout.HitTest(new Point(layout.X(timeline.Ready), 5)).Kind);
+        Assert.Equal(TimelineHit.None, layout.HitTest(new Point(layout.X(0.5f), 5)));
+    }
+
+    [Fact]
+    public void 켜지지_않은_종류의_막대는_자리가_없다()
+    {
+        LineTimeline timeline = Timeline();
+        TimelineLayout layout = new(timeline, [CommandKind.Acting], 1000);
+        int fadeOut = timeline.Bars.ToList().FindIndex(b => b.Name == "fade_out");
+
+        Assert.Equal(0, layout.BarRect(fadeOut).Width, 3);
+        Assert.True(layout.Height < new TimelineLayout(timeline, Tracks, 1000).Height);
+    }
+
+    // ── 화면 ────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 줄을_고르면_타임라인이_서고_모션의_길이를_곁의_파일에서_읽는다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _) = Open();
+            LineTimeline timeline = window.ShownTimeline!;
+
+            Assert.Equal(new[] { "in", "start", "a", "end" }, timeline.Anchors.Select(a => a.Name));
+            Assert.Equal(1f, timeline.Anchors[1].Open, 3);
+            Assert.Equal(0.5f, timeline.Bars.First(b => b.Name == "motion").Duration!.Value, 3);
+            Assert.Equal(20f, window.TypewriterSpeed);
+
+            window.SelectCommand("t1/start/placement/0");
+            RenderShots.Save(window, "k4-4-timeline");
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 막대를_끌면_그_막대만_옮겨지고_파일에_쓰인다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, string path) = Open();
+
+            // in의 fade_out을 0.2초 늦춘다 — 뒤의 face는 0.5초에 남는다.
+            Assert.True(window.DragBar("t1/in/placement/0", 0.2f)!.Changed);
+
+            Assert.Contains("<<at in pause 6fr>>\n<<at in fade_out s1 15fr>>\n<<at in pause 9fr>>\n<<at in face s2 05>>", File.ReadAllText(path));
+            Assert.Equal(0.5f, window.ShownTimeline!.Bars.First(b => b.Name == "face").Delay, 3);
+            Assert.Equal("t1/in/placement/0", window.PickedCommand?.ToString());
+
+            // 조작은 둘이지만 되돌리기는 한 칸이다.
+            Assert.True(window.Undo());
+            Assert.Equal(Script, File.ReadAllText(path));
+            Assert.False(window.Undo());
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void Shift로_끌면_뒤의_커맨드도_함께_움직인다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _) = Open();
+
+            window.DragBar("t1/in/placement/0", 0.2f, together: true);
+
+            Assert.Equal(0.7f, window.ShownTimeline!.Bars.First(b => b.Name == "face").Delay, 3);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 막대의_끝을_끌면_길이가_적히고_앵커를_끌면_간격이_적힌다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, string path) = Open();
+
+            window.DragBar("t1/in/placement/0", 0.5f, end: true);
+            Assert.Contains("<<at in fade_out s1 30fr>>", File.ReadAllText(path));
+
+            // start를 1초 뒤로 — in의 간격이 2초가 된다.
+            window.DragAnchor("start", 1f);
+            Assert.Contains("<<gap in 60fr>>", File.ReadAllText(path));
+            Assert.Equal(2f, window.ShownTimeline!.Anchors[1].Open, 3);
+
+            // 줄의 끝을 1초 뒤로 — 넘김 전에 머문다.
+            float ready = window.ShownTimeline.Ready;
+            window.DragAnchor(null, 1f);
+            Assert.Contains("<<gap end 30fr>>", File.ReadAllText(path));
+            Assert.Equal(ready + 1f, window.ShownTimeline!.Ready, 2);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 움직이지_않는_끌기는_아무것도_쓰지_않는다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, string path) = Open();
+
+            Assert.Null(window.DragBar("t1/in/placement/0", 0f));
+            Assert.Null(window.DragBar("t1/in/acting/0", 0.5f, end: true));
+            Assert.Null(window.DragAnchor("in", 1f));
+            Assert.Equal(Script, File.ReadAllText(path));
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 타자기의_속도를_바꾸면_글에_걸린_앵커가_따라_움직이고_대본에_기억된다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _) = Open();
+            float before = window.ShownTimeline!.Anchors[2].Open;
+
+            window.SetTypewriterSpeed(40f);
+
+            Assert.True(window.ShownTimeline!.Anchors[2].Open < before);
+            Assert.Equal(1f, window.ShownTimeline.Anchors[1].Open, 3);
+            Assert.Equal(40f, window.TypewriterSpeed);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 종류를_끄면_그_트랙의_막대가_빠진다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _) = Open();
+
+            window.SetKinds(CommandKind.Acting);
+
+            Assert.Equal(new[] { "face", "face_swap", "motion" }, window.ShownTimeline!.Bars.Select(b => b.Name));
+            window.Close();
+        });
+    }
+}

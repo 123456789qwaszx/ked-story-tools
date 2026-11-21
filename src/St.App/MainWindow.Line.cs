@@ -44,6 +44,7 @@ public partial class MainWindow
             PickedCommand = null;
             PickedAnchor = null;
 
+            ShownTimeline = null;
             _lineHost.Children.Add(new TextBlock
             {
                 Text = Library is null ? "대본 폴더를 열면 챕터와 장면이 왼쪽에 선다." : "왼쪽에서 줄을 고른다.",
@@ -81,6 +82,7 @@ public partial class MainWindow
         }
 
         _lineHost.Children.Add(BuildLineHeader(line, outline));
+        _lineHost.Children.Add(BuildTimeline(line));
 
         foreach (OutlineStep step in outline.Steps)
         {

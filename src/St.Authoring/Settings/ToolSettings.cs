@@ -24,6 +24,16 @@ public sealed class ToolSettings
     /// </summary>
     public Dictionary<string, string> Catalogs { get; set; } = [];
 
+    /// <summary>타자기의 기준 속도(초당 글자 수) — 타임라인이 글이 쳐지는 시간을 어림할 때 쓴다. 런타임 예제 씬의 값이 20이다.</summary>
+    public const float DefaultTypewriterSpeed = 20f;
+
+    /// <summary>대본마다의 타자기 속도. 열쇠는 연 대본의 경로다(U3). 적지 않은 대본은 <see cref="DefaultTypewriterSpeed"/>.</summary>
+    public Dictionary<string, float> TypewriterSpeeds { get; set; } = [];
+
+    /// <summary>그 대본의 타자기 속도.</summary>
+    public float TypewriterSpeedFor(string root)
+        => TypewriterSpeeds.TryGetValue(root, out float speed) && speed > 0f ? speed : DefaultTypewriterSpeed;
+
     /// <summary>설정 파일을 읽지 못한 까닭. 읽었거나 파일이 없으면 null.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string? LoadProblem { get; private set; }

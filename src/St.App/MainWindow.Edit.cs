@@ -305,8 +305,9 @@ public partial class MainWindow
     /// <summary>
     /// 고른 줄에 조작 여럿을 한 덩이로 한다(카드 한 장) — 되돌리기 한 칸이다.
     /// <paramref name="keepStep"/>이면 고친 뒤에도 앵커를 고른 채로 둔다(이어서 더할 수 있게).
+    /// <paramref name="pick"/>을 주면 고친 뒤에 그 커맨드를 고른다.
     /// </summary>
-    internal EditOutcome? ApplyEdits(IReadOnlyList<LineEdit> edits, bool keepStep)
+    internal EditOutcome? ApplyEdits(IReadOnlyList<LineEdit> edits, bool keepStep, CommandAddress? pick = null)
     {
         if (_session is null || _lines.SelectedItem is not LibraryLine line)
         {
@@ -330,7 +331,8 @@ public partial class MainWindow
         }
 
         // 고친 커맨드를 그대로 쥔다 — 지연을 바꾸면 주소의 순번이 달라질 수 있어 결과가 알려 준 주소로 옮긴다.
-        PickedCommand = keepStep ? null : outcome.Target;
+        // 타임라인에서 끈 막대는 그 주소를 그대로 쥔다(조작이 여럿이면 마지막 것의 주소는 다른 커맨드다).
+        PickedCommand = keepStep ? null : pick ?? outcome.Target;
 
         ReloadKeepingSelection();
         _status.Text = outcome.Warnings.Count > 0
