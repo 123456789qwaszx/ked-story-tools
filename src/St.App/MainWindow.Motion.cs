@@ -2,8 +2,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Mt.App.Views;
 using St.App.Views;
 using St.Authoring.Editing;
+using St.Authoring.Motions;
 using St.Authoring.Reading;
 
 namespace St.App;
@@ -113,5 +115,76 @@ public partial class MainWindow
         }
 
         return outcome;
+    }
+
+    // ── 그래프 에디터 (characterRig의 것 — src/Mt.Graph/vendoring.md) ────────
+
+    private readonly GraphEditorView _graph = new() { Height = 300 };
+
+    private MotionGraphEditor? _graphEditor;
+    private string? _graphPath;
+
+    /// <summary>그래프 에디터 — 이 편의 모션 파일에 든 모션을 고를 때 타임라인 아래에 선다.</summary>
+    internal GraphEditorView MotionGraph => _graph;
+
+    /// <summary>그래프 에디터에 펴 보인 모션의 이름. 그래프가 서지 않았으면 null.</summary>
+    internal string? GraphMotion { get; private set; }
+
+    // 그래프를 그 모션에 묶는다 — 같은 모션이면 다시 묶지 않는다(고른 키와 보던 자리를 지킨다).
+    private void BindGraph(MotionEntry? motion, string scriptPath)
+    {
+        if (motion is null || _session is null)
+        {
+            if (GraphMotion is not null)
+            {
+                GraphMotion = null;
+                _graph.Bind(null, null);
+            }
+
+            return;
+        }
+
+        if (_graphEditor is null || _graphPath != scriptPath)
+        {
+            if (_graphEditor is not null)
+            {
+                _graphEditor.GraphChanged -= OnGraphChanged;
+            }
+
+            _graphEditor = new MotionGraphEditor(_session, scriptPath);
+            _graphEditor.GraphChanged += OnGraphChanged;
+            _graphPath = scriptPath;
+            GraphMotion = null;
+        }
+
+        if (GraphMotion != motion.Clip.Name)
+        {
+            GraphMotion = motion.Clip.Name;
+            _graph.RangeStart = 0;
+            _graph.RangeEnd = motion.Clip.Duration;
+            _graph.Bind(_graphEditor, GraphMotion);
+        }
+    }
+
+    // 그래프에서 키를 고쳤다(파일에 쓰였다) — 되돌리기 단추와 상태만 따라간다. 줄은 다시 짓지 않는다.
+    private void OnGraphChanged(object? sender, EventArgs e)
+    {
+        ForgetMotions();
+        RefreshUndoButtons();
+        _status.Text = _graphEditor?.Error is { } error
+            ? $"고치지 않았다 — {error}"
+            : "키를 고쳐 모션 파일에 썼다 — Unity에서 되감으면 보인다 · 되돌리기 Ctrl+Z";
+    }
+
+    /// <summary>대본을 새로 열었다 — 그래프가 쥔 편집기는 앞 대본의 것이다.</summary>
+    private void ResetGraph()
+    {
+        if (_graphEditor is not null)
+        {
+            _graphEditor.GraphChanged -= OnGraphChanged;
+        }
+
+        (_graphEditor, _graphPath, GraphMotion) = (null, null, null);
+        _graph.Bind(null, null);
     }
 }

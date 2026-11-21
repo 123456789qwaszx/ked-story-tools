@@ -79,7 +79,11 @@ public partial class MainWindow
         TimelineBar? bar = _picked.Count == 1 ? ShownTimeline.Bars.FirstOrDefault(b => b.Address == _picked[0]) : null;
         OutlineCommand? picked = bar is null ? null : ShownOutline?.Steps.SelectMany(s => s.Commands).FirstOrDefault(c => c.Address == bar.Address);
         ShownMotion = picked is null ? null : clips.Find(picked);
-        _curves.Show(ShownMotion, bar?.Start ?? 0f, () => _timeline.Layout);
+
+        // 이 편의 파일에 든 모션이고 고칠 수 있는 줄이면 그래프 에디터로, 아니면 읽기만 하는 커브로.
+        bool graph = ShownMotion is { Source: MotionSource.Episode } && ShownOutline?.Editable == true;
+        _curves.Show(graph ? null : ShownMotion, bar?.Start ?? 0f, () => _timeline.Layout);
+        BindGraph(graph ? ShownMotion : null, path);
         FitTimeline();
 
         TextBox speed = new()
@@ -138,6 +142,20 @@ public partial class MainWindow
         if (ShownMotion is { } motion)
         {
             panel.Children.Add(MotionCaption(motion));
+        }
+
+        if (GraphMotion is not null)
+        {
+            (_graph.Parent as Panel)?.Children.Remove(_graph);
+            panel.Children.Add(_graph);
+            panel.Children.Add(new TextBlock
+            {
+                Text = "그래프 — 키를 누르고(Shift로 여럿 · 끌어서 상자로) 가운데 단추로 끌어 옮긴다 · 두 번 누르면 그 자리에 키 · Delete로 지운다 · 핸들을 끌어 탄젠트 · "
+                    + "Ctrl+1 auto · Ctrl+2 flat · 휠로 넓히고 Alt+가운데 단추로 민다 · F 고른 것에 맞춤 · A 전체. 고칠 때마다 모션 파일에 쓴다",
+                FontSize = 11,
+                Foreground = Palette.Faint,
+                TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+            });
         }
 
         panel.Children.Add(help);

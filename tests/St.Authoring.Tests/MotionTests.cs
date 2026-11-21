@@ -223,4 +223,90 @@ public class MotionTests
         Assert.False(session.Undo());
         Assert.Equal(outside, File.ReadAllText(episode));
     }
+
+    // ── 그래프의 편집기 (K6-4) ──────────────────────────────────────────────
+
+    private static readonly Mt.Authoring.Graph.CurveRef Y = new("CharacterPortrait_Track_Move", Mt.Authoring.Model.ChannelKind.Position, Mt.Authoring.Model.Axis.Y);
+
+    // 모두가 쓰는 파일의 꼴 그대로를 이 편의 파일로 — nod(키 둘, mirror가 딸렸다)와 곁의 모션 하나.
+    private static string Episode() => MotionFile.Add(Shared, new JsonObject { ["name"] = "other", ["duration"] = 1, ["channels"] = new JsonArray() });
+
+    [Fact]
+    public void 그래프의_편집기는_키를_고칠_때마다_그_모션만_파일에_쓴다()
+    {
+        string before = Episode();
+        (EditSession session, string script, string dir) = Open(episode: before, shared: null);
+        string episode = Path.Combine(dir, "ep01.motions.json");
+        MotionGraphEditor editor = new(session, script);
+        int changed = 0;
+        editor.GraphChanged += (_, _) => changed++;
+
+        Mt.Authoring.Model.MotionAsset motion = editor.FindMotion("nod")!;
+        List<Mt.Authoring.Model.KeyAsset> keys = Y.Resolve(motion)!.Keys;
+        Assert.Equal(2, keys.Count);
+        Assert.All(keys, k => Assert.Equal(Mt.Authoring.Model.TangentMode.Free, k.Tangent));
+
+        // 가운데에 키 하나를 더한다.
+        editor.SetKeysMany("nod", [(Y, keys.Append(new Mt.Authoring.Model.KeyAsset { T = 0.25f, V = -40f }))]);
+
+        string after = File.ReadAllText(episode);
+        Assert.Null(editor.Error);
+        Assert.Equal(1, changed);
+        Assert.Contains("\"v\": -40", after);
+
+        // 그 모션만 바뀐다 — 곁의 모션과 파일의 머리는 글자 하나 그대로이고, 모르는 칸(mirror)도 남는다.
+        Assert.Equal(before[..before.IndexOf("\"channels\"", StringComparison.Ordinal)], after[..after.IndexOf("\"channels\"", StringComparison.Ordinal)]);
+        Assert.Equal(before[before.IndexOf("\"name\": \"other\"", StringComparison.Ordinal)..], after[after.IndexOf("\"name\": \"other\"", StringComparison.Ordinal)..]);
+        Assert.Equal(Script, File.ReadAllText(script));
+
+        // 쥐고 있는 모션이 곧 파일의 것이다 — 다시 찾아도 같은 것이고 키가 셋이다.
+        Assert.Same(motion, editor.FindMotion("nod"));
+        Assert.Equal(3, Y.Resolve(motion)!.Keys.Count);
+
+        // 되돌리기 한 칸 — 파일이 처음 그대로 돌아오고, 다시 읽으면 키가 둘이다.
+        Assert.True(session.Undo());
+        Assert.Equal(before, File.ReadAllText(episode));
+        editor.Reload();
+        Assert.Equal(2, Y.Resolve(editor.FindMotion("nod")!)!.Keys.Count);
+    }
+
+    [Fact]
+    public void 탄젠트의_모드는_쥐고_있는_동안_남고_묶은_고침은_한_칸이다()
+    {
+        (EditSession session, string script, string dir) = Open(episode: BakedMotion("nod"), shared: null);
+        string episode = Path.Combine(dir, "ep01.motions.json");
+        string before = File.ReadAllText(episode);
+        MotionGraphEditor editor = new(session, script);
+        Mt.Authoring.Graph.CurveRef curve = new("N", Mt.Authoring.Model.ChannelKind.Position, Mt.Authoring.Model.Axis.Y);
+        Mt.Authoring.Graph.KeyRef top = new(curve, 7);
+
+        editor.Batch(() =>
+        {
+            editor.SetTangentMode("nod", [top], Mt.Authoring.Model.TangentMode.Flat);
+            editor.RemoveKeys("nod", [new Mt.Authoring.Graph.KeyRef(curve, 1)]);
+        });
+
+        // 평평한 탄젠트가 파일에 적히고(기울기 0), 모드는 이 편집기가 쥔 동안 남는다. 키 하나가 빠졌다.
+        Mt.Authoring.Model.MotionAsset motion = editor.FindMotion("nod")!;
+        Assert.Equal(15, curve.Resolve(motion)!.Keys.Count);
+        Mt.Authoring.Model.KeyAsset flat = curve.Resolve(motion)!.Keys[6];
+        Assert.Equal(Mt.Authoring.Model.TangentMode.Flat, flat.Tangent);
+        Assert.Equal(0f, flat.InTangent);
+
+        // 묶은 것은 되돌리기 한 칸이다.
+        Assert.True(session.Undo());
+        Assert.Equal(before, File.ReadAllText(episode));
+        Assert.False(session.CanUndo);
+    }
+
+    [Fact]
+    public void 모두가_쓰는_파일의_모션은_그래프에서_고치지_않는다()
+    {
+        (EditSession session, string script, string dir) = Open();
+        MotionGraphEditor editor = new(session, script);
+
+        Assert.Null(editor.FindMotion("nod"));
+        Assert.Throws<KeyNotFoundException>(() => editor.SetKeysMany("nod", [(Y, [])]));
+        Assert.Equal(Shared, File.ReadAllText(Path.Combine(dir, "motions.json")));
+    }
 }

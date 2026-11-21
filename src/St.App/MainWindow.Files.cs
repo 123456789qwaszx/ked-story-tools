@@ -69,6 +69,8 @@ public partial class MainWindow
         _settings.LastPath = _session.Root;
         _settings.Save(_settingsPath);
         LoadRememberedCatalog();
+        ResetGraph();
+        ForgetMotions();
         ResetPickers();
     }
 }

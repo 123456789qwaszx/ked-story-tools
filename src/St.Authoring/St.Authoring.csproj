@@ -11,5 +11,7 @@
   <ItemGroup>
     <!-- 런타임에서 복사 반입한 연출 코어. 명세 표 · 줄 읽기 · 시간 토큰은 이 한 벌만 쓴다. -->
     <ProjectReference Include="..\Ked.Presentation.Core\Ked.Presentation.Core.csproj" />
+    <!-- 커브의 모델과 그래프의 산수 — ked-motion-tool-characterRig의 사본(src/Mt.Graph/vendoring.md). -->
+    <ProjectReference Include="..\Mt.Graph\Mt.Graph.csproj" />
   </ItemGroup>
 </Project>

@@ -340,8 +340,9 @@ public partial class MainWindow
     {
         if (moved)
         {
-            // 되돌린 칸이 모션 파일의 것일 수 있다.
+            // 되돌린 칸이 모션 파일의 것일 수 있다 — 그래프도 파일에서 다시 읽는다.
             ForgetMotions();
+            _graphEditor?.Reload();
             _editMessage = null;
             ReloadKeepingSelection();
             _status.Text = status;

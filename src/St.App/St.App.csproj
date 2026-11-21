@@ -20,6 +20,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\St.Authoring\St.Authoring.csproj" />
+    <!-- 그래프 에디터의 화면 — ked-motion-tool-characterRig의 사본(src/Mt.Graph/vendoring.md). -->
+    <ProjectReference Include="..\Mt.Graph.Avalonia\Mt.Graph.Avalonia.csproj" />
   </ItemGroup>
 
   <ItemGroup>

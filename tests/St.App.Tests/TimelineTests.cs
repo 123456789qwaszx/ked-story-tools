@@ -323,4 +323,61 @@ public class TimelineTests
             window.Close();
         });
     }
+
+    [Fact]
+    public void 이_편의_모션은_그래프에서_키를_고치고_되돌린다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            string dir = Directory.CreateTempSubdirectory("st-graph-").FullName;
+            string script = Path.Combine(dir, "a.yarn");
+            string motions = Path.Combine(dir, "a.motions.json");
+            File.WriteAllText(script, "title: A\n---\n<<at start motion s1 hop>>\n가: 하나 둘 셋 넷 다섯 #line:t1\n===\n");
+            File.WriteAllText(motions, """
+                {
+                 "schema": "motions/2",
+                 "motions": [
+                  { "name": "hop", "rig": "character", "duration": 0.5, "end": "restore", "channels": [
+                    { "node": "N", "kind": "position",
+                      "y": [ { "t": 0, "v": 0, "inTangent": 0, "outTangent": 0 }, { "t": 0.25, "v": 60, "inTangent": 0, "outTangent": 0 }, { "t": 0.5, "v": 0, "inTangent": 0, "outTangent": 0 } ] } ] }
+                 ]
+                }
+                """);
+            string before = File.ReadAllText(motions);
+
+            MainWindow window = new(Path.Combine(Directory.CreateTempSubdirectory("st-graph-set-").FullName, "settings.json"));
+            window.Show();
+            window.OpenPath(dir);
+            window.SelectLine("t1");
+            Assert.Null(window.GraphMotion);
+
+            window.SelectCommand("t1/start/acting/0");
+
+            // 이 편의 파일에 든 모션이다 — 그래프가 그 모션에 묶여 선다.
+            Assert.Equal("hop", window.GraphMotion);
+            Assert.Equal("hop", window.MotionGraph.MotionName);
+            Assert.Single(window.MotionGraph.Curves);
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            RenderShots.Save(window, "k6-4-graph");
+
+            // 그래프가 하듯 가운데 키를 고르고 지운다 — 파일에 쓰이고, 되돌리기가 켜진다.
+            Mt.Authoring.Graph.CurveRef y = window.MotionGraph.Curves[0].Curve;
+            window.MotionGraph.Select([new Mt.Authoring.Graph.KeyRef(y, 1)], additive: false);
+            window.MotionGraph.DeleteSelection();
+
+            Assert.DoesNotContain("\"v\": 60", File.ReadAllText(motions));
+            Assert.Contains("모션 파일에 썼다", window.StatusLine);
+            Assert.Equal(2, y.Resolve(window.MotionGraph.Motion!)!.Keys.Count);
+
+            Assert.True(window.Undo());
+            Assert.Equal(before, File.ReadAllText(motions));
+            Assert.Equal(3, y.Resolve(window.MotionGraph.Motion!)!.Keys.Count);
+            Assert.Equal(3, window.ShownMotion!.Curves[0].Keys.Length);
+
+            // 모션이 아닌 것을 고르면 그래프는 걷힌다.
+            window.ClearPicks();
+            Assert.Null(window.GraphMotion);
+            window.Close();
+        });
+    }
 }

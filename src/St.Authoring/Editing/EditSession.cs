@@ -134,6 +134,44 @@ public sealed class EditSession
             return has == had ? (null, null, null) : (new MotionChange(episode, before, MotionFile.Replace(before, name, simplified)), null, null);
         });
 
+    /// <summary>
+    /// 그 편의 모션 파일에 든 모션 하나를 갈아 쓴다 — 그래프에서 키를 고친 것(docs/PLAN.md §4.8). 되돌리기 한 칸이다.
+    /// 대본은 바뀌지 않는다. 쓰지 못했으면 까닭을, 썼거나 바뀐 것이 없으면 null을 돌려준다.
+    /// </summary>
+    public string? WriteMotion(string path, string name, JsonObject motion)
+    {
+        ArgumentNullException.ThrowIfNull(path);
+        ArgumentNullException.ThrowIfNull(name);
+        ArgumentNullException.ThrowIfNull(motion);
+
+        try
+        {
+            string episode = MotionFile.EpisodePath(path);
+
+            if (ReadOrNull(episode) is not { } before)
+            {
+                return "이 편의 모션 파일이 없다";
+            }
+
+            string after = MotionFile.Replace(before, name, motion);
+
+            if (after == before)
+            {
+                return null;
+            }
+
+            File.WriteAllText(episode, after);
+            _undo.Add(new UndoStep(null, new MotionChange(episode, before, after)));
+            _redo.Clear();
+            Revision++;
+            return null;
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            return $"모션 파일을 고치지 못했다 — {exception.Message}";
+        }
+    }
+
     private EditOutcome ChangeMotion(
         string path, CommandAddress target, Func<FileState, LineReadCommand, string, (MotionChange? Change, LineEdit? Edit, string? Error)> plan)
     {
