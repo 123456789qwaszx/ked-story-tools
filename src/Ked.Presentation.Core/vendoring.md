@@ -10,7 +10,7 @@
 | 반입일 | 2026-11-22 |
 | 범위 | `Core/` 전부 — `Ease/` · `Emoji/` · `Motion/` · `Primitives/` · `Read/` · `Reduce/` · `Spec/` · `State/` · `Tokens/` · `Transforms/` · `Tuning/` 소스와 `Documentation~/` |
 | 제외 | `Tests/` · `*.meta` · `*.asmdef` |
-| 테스트 | 순수 테스트(유니티 · 런타임 · DOTween 참조 없는 것) 33개를 `tests/Ked.Presentation.Core.Tests/EditMode/`로. 파서 표의 원문을 읽는 `StageCommandSpecTableParserTests`는 저쪽(Stage)에 남는다 |
+| 테스트 | 순수 테스트(코어의 타입만 쓰는 것) 31개를 `tests/Ked.Presentation.Core.Tests/EditMode/`로. 저쪽에 남는 것 — 파서 표의 원문을 읽는 `StageCommandSpecTableParserTests`, 코어 밖의 타입을 쓰는 `CastRegistrySlotOnlyTests` · `CharacterRigRegistryOutsideFoldTests`(`using`에는 드러나지 않는다 — 이름공간 없이 다른 어셈블리의 타입을 쓴다) |
 | 견본 | `tests/St.Authoring.Tests/Fixtures/presentation_demo_Demo_Presentation.yarn`은 같은 커밋의 `Assets/Dialogue/ChapterProgression/` 그대로다(줄 끝 문자는 LF) |
 | 이쪽 살림 | `Ked.Presentation.Core.csproj` · `vendoring.md` (동기화 때 유지) |
 
@@ -24,6 +24,7 @@
    `Tests/EditMode/*.cs` 중 순수한 것만 `tests/Ked.Presentation.Core.Tests/EditMode/`로.
    기준: `UnityEngine` · `UnityEditor` · `DG.` · `Ked.Presentation.Runtime/Editor/Stage/Playback` ·
    `Ked.CommandExecutor` · `Newtonsoft` · `LogAssert`를 참조하거나 저쪽 소스 파일을 읽으면 제외.
+   `using`만으로는 가려지지 않는다 — 들인 뒤 빌드해서 코어에 없는 타입을 쓰는 것을 마저 뺀다.
 3. **보수** — 소비자(`St.Authoring` · `St.Cli` · `St.App`)의 컴파일 · 의미 적응은 **소비자 쪽에서** 고친다.
    줄 고치기는 코어가 적는 문제 글 하나(커맨드가 남지 않은 표지 — `LineEditor.IsUnusedMarker`)에 기댄다.
    그 글이 바뀌면 `표지의_마지막_커맨드를_빼면_알리고_받아들인다` 시험이 실패해 알린다.

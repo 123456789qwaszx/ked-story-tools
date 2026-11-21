@@ -47,7 +47,8 @@
 
 - 뼈대 — `KedStoryTools.sln`: 코어 사본(`src/Ked.Presentation.Core` — 런타임 `dev` `c39986c2`, `vendoring.md`) → `St.Authoring` → `St.App`(셸뿐) + `St.Cli`(`st`).
 - 줄 고치기 — 조작 다섯과 되돌리기. 시험은 `tests/St.Authoring.Tests`(지어낸 대본 + 런타임의 데모 대본).
-- **확인하지 못한 것** — 이 세션의 셸에는 NuGet이 막혀 있다. 코어 사본 · `St.Authoring` · `St.Cli`는 진짜 프로젝트 파일로 빌드했고(경고 0), `St.Authoring.Tests`의 시험 70개는 xunit을 흉내 낸 임시 러너로 돌려 모두 지났다. **`St.App` · `St.App.Tests` · `Ked.Presentation.Core.Tests`는 빌드해 보지 못했다** — 소유자가 `dotnet build` · `dotnet test`로 확인한다.
+- **확인** — 소유자의 빌드 · 테스트(2026-11-22): `St.Authoring.Tests` · `St.App.Tests` 71개가 지났다. `Ked.Presentation.Core.Tests`는 코어 밖의 타입을 쓰는 테스트 둘이 섞여 빌드가 깨졌고, 그 둘을 뺀 뒤 604개(건너뜀 1 — 예제 대본이 없는 저장소라서)가 지난다.
+- 이 세션의 셸에는 NuGet이 막혀 있다 — 형제 툴의 빌드 산출물(`bin`)에 있는 Avalonia · xunit · NUnit의 DLL을 참조해 빌드하고 `dotnet vstest`로 돌린다.
 
 K4를 시작하는 세션이 알 것:
 
