@@ -88,10 +88,21 @@ public sealed partial class ScriptLibrary
 
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
-    private ScriptLibrary(string root, IReadOnlyList<LibraryFile> files, IReadOnlyList<StoryChapter> chapters, IReadOnlyList<string> problems)
+    private readonly IReadOnlyList<ChapterSource> _sources;
+    private readonly IReadOnlyList<string> _loadProblems;
+
+    private ScriptLibrary(
+        string root,
+        IReadOnlyList<LibraryFile> files,
+        IReadOnlyList<ChapterSource> sources,
+        IReadOnlyList<string> loadProblems,
+        IReadOnlyList<StoryChapter> chapters,
+        IReadOnlyList<string> problems)
     {
         Root = root;
         Files = files;
+        _sources = sources;
+        _loadProblems = loadProblems;
         Chapters = chapters;
         Problems = problems;
     }
@@ -109,6 +120,9 @@ public sealed partial class ScriptLibrary
     /// <summary>대사 줄의 수 — 모든 파일.</summary>
     public int LineCount => Files.Sum(f => f.Read.Lines.Count);
 
+    /// <summary>이 대본을 이루는 파일(대본 · 진행 파일)의 경로 — 바깥에서 바뀌었는지 볼 때 쓴다.</summary>
+    public IEnumerable<string> SourcePaths => Files.Select(f => f.Script.Path).Concat(_sources.Select(s => s.Path));
+
     [GeneratedRegex(@"^//\s*장면:\s*(?<name>.+?)\s*\((?<id>[^()\s]+)\)\s*$", RegexOptions.Multiline)]
     private static partial Regex SceneComment();
 
@@ -117,6 +131,7 @@ public sealed partial class ScriptLibrary
     {
         ScriptSet set = ScriptSet.Open(path);
         List<LibraryFile> files = [];
+        List<ChapterSource> sources = [];
         List<string> problems = [];
 
         foreach (string file in set.Paths)
@@ -131,6 +146,49 @@ public sealed partial class ScriptLibrary
                 problems.Add(exception.Message);
             }
         }
+
+        if (Directory.Exists(path))
+        {
+            string[] progressions = Directory.GetFiles(path, ProgressionPattern, SearchOption.AllDirectories);
+            Array.Sort(progressions, StringComparer.Ordinal);
+
+            foreach (string progression in progressions)
+            {
+                try
+                {
+                    if (JsonSerializer.Deserialize<ChapterDto>(File.ReadAllText(progression), Json) is { Nodes.Count: > 0 } dto)
+                    {
+                        sources.Add(new ChapterSource(progression, dto));
+                    }
+                }
+                catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
+                {
+                    problems.Add($"{progression} — 진행 파일을 읽지 못했다: {exception.Message}");
+                }
+            }
+        }
+
+        return Assemble(set.Root, files, sources, problems);
+    }
+
+    /// <summary>
+    /// 파일 하나만 바뀐 대본 — 디스크를 다시 읽지 않고 그 파일의 줄만 갈아 끼워 챕터를 다시 짓는다.
+    /// 고칠 때마다 폴더 전체를 다시 읽지 않게 한다. 이 대본에 없는 파일이면 그대로 돌려준다.
+    /// </summary>
+    public ScriptLibrary WithFile(LibraryFile file)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        return Files.Any(f => f.Script.Path == file.Script.Path)
+            ? Assemble(Root, Files.Select(f => f.Script.Path == file.Script.Path ? file : f).ToList(), _sources, _loadProblems)
+            : this;
+    }
+
+    // 읽어 둔 파일과 진행 파일에서 챕터 · 장면 · 에피소드를 짓는다 — 디스크를 보지 않는다.
+    private static ScriptLibrary Assemble(
+        string root, IReadOnlyList<LibraryFile> files, IReadOnlyList<ChapterSource> sources, IReadOnlyList<string> loadProblems)
+    {
+        List<string> problems = [.. loadProblems];
 
         // yarn 노드 → 그 노드의 줄. 노드 이름은 Yarn 프로젝트에서 유일하다.
         Dictionary<string, Node> nodes = new(StringComparer.Ordinal);
@@ -152,22 +210,8 @@ public sealed partial class ScriptLibrary
             }
         }
 
-        List<StoryChapter> chapters = [];
         HashSet<string> used = new(StringComparer.Ordinal);
-
-        if (Directory.Exists(path))
-        {
-            string[] progressions = Directory.GetFiles(path, ProgressionPattern, SearchOption.AllDirectories);
-            Array.Sort(progressions, StringComparer.Ordinal);
-
-            foreach (string progression in progressions)
-            {
-                if (ReadChapter(progression, nodes, used, problems) is { } chapter)
-                {
-                    chapters.Add(chapter);
-                }
-            }
-        }
+        List<StoryChapter> chapters = sources.Select(source => BuildChapter(source, nodes, used)).ToList();
 
         List<StoryScene> loose = order
             .Where(node => !used.Contains(node.Name))
@@ -183,35 +227,19 @@ public sealed partial class ScriptLibrary
             chapters.Add(new StoryChapter(LooseChapterId, chapters.Count == 0 ? "대본" : "진행 파일에 없는 대본", loose));
         }
 
-        return new ScriptLibrary(set.Root, files, chapters, problems);
+        return new ScriptLibrary(root, files, sources, loadProblems, chapters, problems);
     }
 
-    private static StoryChapter? ReadChapter(
-        string path, Dictionary<string, Node> nodes, HashSet<string> used, List<string> problems)
+    private static StoryChapter BuildChapter(ChapterSource source, Dictionary<string, Node> nodes, HashSet<string> used)
     {
-        ChapterDto? dto;
-
-        try
-        {
-            dto = JsonSerializer.Deserialize<ChapterDto>(File.ReadAllText(path), Json);
-        }
-        catch (Exception exception) when (exception is JsonException or IOException or UnauthorizedAccessException)
-        {
-            problems.Add($"{path} — 진행 파일을 읽지 못했다: {exception.Message}");
-            return null;
-        }
-
-        if (dto?.Nodes is not { Count: > 0 })
-        {
-            return null;
-        }
+        ChapterDto dto = source.Dto;
 
         // 장면은 에피소드가 처음 나오는 차례로 선다 — 진행 파일에는 장면의 차례가 따로 없다.
         List<string> sceneIds = [];
         Dictionary<string, List<StoryEpisode>> episodes = new(StringComparer.Ordinal);
         Dictionary<string, LibraryFile> sceneFiles = new(StringComparer.Ordinal);
 
-        foreach (EpisodeDto episode in dto.Nodes)
+        foreach (EpisodeDto episode in dto.Nodes ?? [])
         {
             string id = episode.EpisodeId ?? string.Empty;
             string entry = string.IsNullOrEmpty(episode.DialogueEntryId) ? id : episode.DialogueEntryId;
@@ -241,7 +269,7 @@ public sealed partial class ScriptLibrary
                 id, sceneFiles.TryGetValue(id, out LibraryFile? file) ? SceneName(file, id) ?? id : id, episodes[id]))
             .ToList();
 
-        string chapterId = string.IsNullOrEmpty(dto.ChapterId) ? Path.GetFileName(path) : dto.ChapterId;
+        string chapterId = string.IsNullOrEmpty(dto.ChapterId) ? Path.GetFileName(source.Path) : dto.ChapterId;
         return new StoryChapter(chapterId, string.IsNullOrEmpty(dto.DisplayName) ? chapterId : dto.DisplayName, scenes);
     }
 
@@ -263,6 +291,9 @@ public sealed partial class ScriptLibrary
     }
 
     private sealed record Node(string Name, LibraryFile File, IReadOnlyList<LibraryLine> Lines);
+
+    /// <summary>읽어 둔 진행 파일 하나 — 챕터를 다시 지을 때 디스크를 다시 보지 않는다.</summary>
+    private sealed record ChapterSource(string Path, ChapterDto Dto);
 
     // 진행 파일(ked-progression의 챕터)에서 이 툴이 읽는 칸만.
     private sealed record ChapterDto(string? ChapterId, string? DisplayName, List<EpisodeDto>? Nodes);

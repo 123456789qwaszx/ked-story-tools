@@ -141,6 +141,30 @@ public static partial class LineEditor
     }
 
     /// <summary>
+    /// 이 줄의 커맨드 가운데 카드에서 온 것의 출처 — 파일의 줄 번호(<see cref="LineReadCommand.Line"/>) → <c>E04</c> · <c>F02#2</c>.
+    /// </summary>
+    public static IReadOnlyDictionary<int, string> CardTags(string text, LineRead line)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(line);
+
+        Dictionary<int, string> tags = [];
+        string[] lines = text.Substring(line.Block.Start, line.Block.Length).Split('\n');
+
+        for (int i = 0; i < lines.Length; i++)
+        {
+            Match match = CardCommentPattern().Match(lines[i].TrimEnd('\r'));
+
+            if (match.Success)
+            {
+                tags[line.Block.FirstLine + i] = match.Groups["id"].Value + (match.Groups["n"].Success ? $"#{match.Groups["n"].Value}" : string.Empty);
+            }
+        }
+
+        return tags;
+    }
+
+    /// <summary>
     /// 이 줄에 그 카드를 펼칠 때 남길 출처 — 처음이면 카드 ID 그대로, 같은 카드가 이미 있으면 둘째부터 <c>F02#2</c>(P5).
     /// </summary>
     public static string NextCardTag(string text, LineRead line, string cardId)

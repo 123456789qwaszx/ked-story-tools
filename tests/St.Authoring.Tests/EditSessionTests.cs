@@ -100,6 +100,32 @@ public class EditSessionTests
     }
 
     [Fact]
+    public void 크기가_같은_바깥의_고침도_덮어쓰지_않는다()
+    {
+        (EditSession session, string a, _) = Open();
+        session.Apply(a, new SetValue(FaceSwap, "face", "07"));
+
+        // 같은 길이의 다른 글 — 때와 크기로는 가릴 수 없다.
+        File.WriteAllText(a, File.ReadAllText(a).Replace("emoji s2 star", "emoji s2 moon"));
+
+        Assert.True(session.Apply(a, new SetGap("t1", "a", "12fr")).Changed);
+        Assert.Contains("emoji s2 moon", File.ReadAllText(a));
+    }
+
+    [Fact]
+    public void 고친_파일만_갈아_끼우고_다른_파일의_줄은_그대로_쓴다()
+    {
+        (EditSession session, string a, _) = Open();
+        LibraryLine other = Line(session, "u1");
+
+        session.Apply(a, new SetValue(FaceSwap, "face", "07"));
+
+        // 고치지 않은 파일은 다시 읽지 않는다 — 읽어 둔 줄이 그대로다.
+        Assert.True(ReferenceEquals(other.Read, Line(session, "u1").Read));
+        Assert.False(ReferenceEquals(Line(session, "t1").Read, other.Read));
+    }
+
+    [Fact]
     public void 다시_읽으면_바깥의_고침이_들어온다()
     {
         (EditSession session, string a, _) = Open();

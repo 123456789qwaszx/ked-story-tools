@@ -48,6 +48,13 @@ public sealed class ScriptFile
         }
     }
 
+    /// <summary>글만 바꾼 같은 파일 — 경로와 BOM은 그대로다. 디스크는 건드리지 않는다.</summary>
+    public ScriptFile WithText(string text)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        return new ScriptFile(Path, text, HasBom);
+    }
+
     /// <summary>고친 글을 이 파일의 바이트로 — BOM은 읽을 때 있던 대로.</summary>
     public byte[] Encode(string text)
     {
