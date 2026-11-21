@@ -1,0 +1,25 @@
+# 인수인계 — 세션마다 넘겨받을 일
+
+2026-11-22 · 설계는 [`../PLAN.md`](../PLAN.md). 이 폴더는 그 §8의 일을 저장소(세션)마다 가른 것이다.
+각 문서는 이 설계를 세운 대화 없이도 시작할 수 있게 썼다 — 그 저장소의 `CLAUDE.md`와 함께 읽는다.
+
+| 문서 | 저장소 | 일 | 시작할 수 있는 때 |
+|---|---|---|---|
+| [runtime.md](runtime.md) | ked-presentation-runtime | K1 명세 표 · K2 줄 읽기 · (뒤에) K5 도구 연결 · N5 옛 표기 걷기 | 리그의 계층(R1 ~ R5)이 끝난 뒤 |
+| [workspace-n4.md](workspace-n4.md) | ked-vn-workspace | N4 + R6 — 포크 · 파이썬 도구 · 카드 · 다시 내기 | 리그의 계층이 끝난 뒤 |
+| [character-rig.md](character-rig.md) | ked-motion-tool-characterRig | R7 — 코어 사본 · 리그 스키마 · 걷힌 노드 | 런타임의 두 브랜치가 `dev`에 합쳐진 뒤 |
+| [story-tools.md](story-tools.md) | ked-story-tools(여기) | K3 줄 고치기 · CLI · K4 화면 | K1 · K2 · N4가 끝난 뒤 |
+
+## 차례
+
+```
+런타임: 리그의 계층 R1~R5 ──┬─→ K1 → K2 ─────────────┬─→ (K5)
+                           ├─→ 작업공간: N4 + R6 ───┤
+                           ├─→ 모션 툴: R7 ─────────┼─→ 런타임: N5(옛 표기 걷기)
+                           └─→ 추출기 · compositor ─┘
+                                        K1 · K2 · N4 ─→ 이 저장소: K3 → K4
+```
+
+- **N5는 맨 뒤다.** 옛 표기(`<<step>>` · `at` 없는 명령 · 걷힌 커맨드 이름)를 먼저 걷으면 아직 옮기지 않은 소비처의 대본이 깨진다.
+- **같은 저장소를 두 세션이 함께 고치지 않는다.** 런타임의 K1 · K2는 리그의 계층을 하는 세션이 끝난 뒤에 시작한다.
+- 추출기(ked-staging-extractor) · ked-story-compositor(오라클 `Vn.StageOracle`과 코어 사본)는 문서를 따로 쓰지 않았다 — 할 일은 런타임 `docs/stage-changes-handoff.md`에 N5 때 적힌다(줄의 앵커 §9 N5).
