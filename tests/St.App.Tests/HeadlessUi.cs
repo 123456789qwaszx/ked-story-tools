@@ -1,5 +1,7 @@
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Media.Imaging;
 
 namespace St.App.Tests;
 
@@ -44,5 +46,32 @@ public static class TestAppBuilder
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder
         .Configure<App>()
-        .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+        .UseSkiaIfRendering()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = !RenderShots.Enabled });
+}
+
+/// <summary>
+/// 눈으로 볼 화면을 그림 파일로 뽑는 길 — <c>ST_RENDER_DIR</c>이 있을 때만 켜진다(그때는 헤드리스가 Skia로 진짜 그린다).
+/// 보통의 테스트 실행에서는 꺼져 있어 아무것도 그리지 않는다.
+/// </summary>
+internal static class RenderShots
+{
+    public static string? Directory => Environment.GetEnvironmentVariable("ST_RENDER_DIR") is { Length: > 0 } d ? d : null;
+
+    public static bool Enabled => Directory is not null;
+
+    public static AppBuilder UseSkiaIfRendering(this AppBuilder builder) => Enabled ? builder.UseSkia() : builder;
+
+    /// <summary>창의 지금 모습을 <c>이름.png</c>로 낸다. 꺼져 있으면 아무것도 하지 않는다.</summary>
+    public static void Save(Window window, string name)
+    {
+        if (Directory is not { } directory)
+        {
+            return;
+        }
+
+        System.IO.Directory.CreateDirectory(directory);
+        Bitmap? frame = window.CaptureRenderedFrame();
+        frame?.Save(Path.Combine(directory, name + ".png"), new PngBitmapEncoderOptions());
+    }
 }
