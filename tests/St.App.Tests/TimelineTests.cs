@@ -374,6 +374,13 @@ public class TimelineTests
             Assert.Equal(3, y.Resolve(window.MotionGraph.Motion!)!.Keys.Count);
             Assert.Equal(3, window.ShownMotion!.Curves[0].Keys.Length);
 
+            // 도구와 부드럽게 끌기 — 단추가 그래프의 것을 바꾼다.
+            window.SetGraphTool(Mt.App.Views.GraphTool.Scale);
+            window.SetSoftDrag(true);
+            Assert.Equal(Mt.App.Views.GraphTool.Scale, window.MotionGraph.Tool);
+            Assert.True(window.MotionGraph.SoftDrag);
+            RenderShots.Save(window, "k6-5-graph-tools");
+
             // 모션이 아닌 것을 고르면 그래프는 걷힌다.
             window.ClearPicks();
             Assert.Null(window.GraphMotion);

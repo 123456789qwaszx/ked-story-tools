@@ -7,7 +7,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 원본 | `ked-motion-tool-characterRig` `dev` @ `3a4bda7` (그래프를 라이브러리로 뗀 것 `aae00f9` · 키를 고치는 명령의 속 `3a4bda7`) |
+| 원본 | `ked-motion-tool-characterRig` `dev` @ `cc86a00` (그래프를 라이브러리로 뗀 것 `aae00f9` · 키를 고치는 명령의 속 `3a4bda7` · 부드럽게 끌기 `cc86a00`) |
 | 반입일 | 2026-11-22 |
 | 범위 | `src/Mt.Graph/` 전부(`Graph/` · `Model/` · `Mt.Graph.csproj`) · `src/Mt.Graph.Avalonia/` 전부(`GraphEditorView.cs` · csproj) |
 | 테스트 | 가져오지 않는다 — 그래프의 테스트는 저쪽에 있다(`Mt.Authoring.Tests` · `Mt.App.Tests/GraphEditorViewTests`) |

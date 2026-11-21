@@ -147,11 +147,12 @@ public partial class MainWindow
         if (GraphMotion is not null)
         {
             (_graph.Parent as Panel)?.Children.Remove(_graph);
+            panel.Children.Add(GraphBar());
             panel.Children.Add(_graph);
             panel.Children.Add(new TextBlock
             {
                 Text = "그래프 — 키를 누르고(Shift로 여럿 · 끌어서 상자로) 가운데 단추로 끌어 옮긴다 · 두 번 누르면 그 자리에 키 · Delete로 지운다 · 핸들을 끌어 탄젠트 · "
-                    + "Ctrl+1 auto · Ctrl+2 flat · 휠로 넓히고 Alt+가운데 단추로 민다 · F 고른 것에 맞춤 · A 전체. 고칠 때마다 모션 파일에 쓴다",
+                    + "Ctrl+1 auto · Ctrl+2 flat · 휠로 넓히고 Alt+가운데 단추로 민다 · F 고른 것에 맞춤 · A 전체. 구운 키는 여럿을 골라 늘이거나(R) 부드럽게(B) 끈다. 고칠 때마다 모션 파일에 쓴다",
                 FontSize = 11,
                 Foreground = Palette.Faint,
                 TextWrapping = Avalonia.Media.TextWrapping.Wrap,

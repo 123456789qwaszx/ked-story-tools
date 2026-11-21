@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Mt.App.Views;
@@ -123,6 +124,74 @@ public partial class MainWindow
 
     private MotionGraphEditor? _graphEditor;
     private string? _graphPath;
+
+    // 그래프의 도구 — 차례가 단추의 차례다. 프레임마다 찍힌 키는 하나씩 고쳐서는 안 된다: 여럿을 함께 옮기고 늘인다.
+    private static readonly (GraphTool Tool, string Label, string Tip)[] GraphTools =
+    [
+        (GraphTool.Select, "고르기", "Q — 키를 고른다. 고른 키는 가운데 단추로 끌어 옮긴다"),
+        (GraphTool.Move, "옮기기", "W — 고른 키를 왼쪽 단추로 끌어 옮긴다"),
+        (GraphTool.Scale, "늘이기", "R — 고른 키들을 그 한가운데를 기준으로 늘이고 줄인다(왼쪽 단추로 끈다)"),
+        (GraphTool.Region, "영역", "상자로 고르면 상자가 남는다 — 안을 끌면 옮기기, 좌우 모서리는 시간을, 위아래 모서리는 값을 늘인다"),
+    ];
+
+    private readonly Dictionary<GraphTool, ToggleButton> _graphToolButtons = [];
+    private readonly CheckBox _softDrag = new() { Content = "부드럽게", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+    private StackPanel? _graphBar;
+
+    /// <summary>그래프의 도구를 고른다 — 단추를 누른 것과 같다.</summary>
+    internal void SetGraphTool(GraphTool tool)
+    {
+        _graph.Tool = tool;
+        RefreshGraphBar();
+    }
+
+    /// <summary>부드럽게 끌기를 켜고 끈다 — 고른 키를 옮기면 곁의 키가 덜 따라온다.</summary>
+    internal void SetSoftDrag(bool on)
+    {
+        _graph.SoftDrag = on;
+        RefreshGraphBar();
+    }
+
+    private Control GraphBar()
+    {
+        if (_graphBar is not null)
+        {
+            (_graphBar.Parent as Panel)?.Children.Remove(_graphBar);
+            RefreshGraphBar();
+            return _graphBar;
+        }
+
+        _graphBar = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4 };
+
+        foreach ((GraphTool tool, string label, string tip) in GraphTools)
+        {
+            ToggleButton button = new() { Content = label, FontSize = 12, Padding = new Thickness(8, 2) };
+            button.Click += (_, _) => SetGraphTool(tool);
+            ToolTip.SetTip(button, tip);
+            _graphToolButtons[tool] = button;
+            _graphBar.Children.Add(button);
+        }
+
+        _softDrag.Margin = new Thickness(10, 0, 0, 0);
+        _softDrag.Click += (_, _) => SetSoftDrag(_softDrag.IsChecked == true);
+        ToolTip.SetTip(_softDrag, "B — 고른 키를 옮기면 같은 커브의 곁의 키(5프레임 안)가 값만 덜 따라온다. 프레임마다 찍힌 키의 한 대목을 통째로 올리고 내릴 때");
+        _graphBar.Children.Add(_softDrag);
+
+        // 단축키(Q · W · R · B)로 바뀐 것을 단추가 따라간다.
+        _graph.ToolChanged += (_, _) => RefreshGraphBar();
+        RefreshGraphBar();
+        return _graphBar;
+    }
+
+    private void RefreshGraphBar()
+    {
+        foreach ((GraphTool tool, ToggleButton button) in _graphToolButtons)
+        {
+            button.IsChecked = _graph.Tool == tool;
+        }
+
+        _softDrag.IsChecked = _graph.SoftDrag;
+    }
 
     /// <summary>그래프 에디터 — 이 편의 모션 파일에 든 모션을 고를 때 타임라인 아래에 선다.</summary>
     internal GraphEditorView MotionGraph => _graph;
