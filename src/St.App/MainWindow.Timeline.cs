@@ -29,7 +29,11 @@ public partial class MainWindow
 
     /// <summary>타임라인을 가로로 넓힌 배수 — 1이면 가운데의 폭에 꼭 맞는다.</summary>
     internal double TimelineZoom { get; private set; } = 1;
-    private readonly Dictionary<string, ClipLengths> _clips = new(StringComparer.Ordinal);
+    private readonly MotionCurveView _curves = new();
+    private readonly Dictionary<string, MotionLibrary> _motions = new(StringComparer.Ordinal);
+
+    /// <summary>타임라인 아래에 커브를 펴 보인 모션 — 고른 커맨드가 아는 모션을 가리킬 때. 아니면 null.</summary>
+    internal MotionEntry? ShownMotion { get; private set; }
 
     /// <summary>가운데에 펴 보인 줄의 타임라인. 고른 줄이 없으면 null.</summary>
     internal LineTimeline? ShownTimeline { get; private set; }
@@ -44,7 +48,7 @@ public partial class MainWindow
         {
             _timeline.Tag = this;
             _timeline.BarPicked += PickCommand;
-            _timelineScroll.Content = _timeline;
+            _timelineScroll.Content = new StackPanel { Spacing = 2, Children = { _timeline, _curves } };
             _timelineScroll.SizeChanged += (_, _) => FitTimeline();
 
             // Ctrl을 누르고 굴리면 넓히고 좁힌다 — 구르는 자리가 먼저 받기 전에 잡는다.
@@ -61,15 +65,21 @@ public partial class MainWindow
 
         string path = line.File.Script.Path;
 
-        if (!_clips.TryGetValue(path, out ClipLengths? clips))
+        if (!_motions.TryGetValue(path, out MotionLibrary? clips))
         {
-            _clips[path] = clips = ClipLengths.Load(path);
+            _motions[path] = clips = MotionLibrary.Load(path);
         }
 
         // 트랙은 켜진 종류만 — 종류 필터가 트랙을 접고 편다.
         CommandKind[] tracks = DirectorKinds.Where(Kinds.Contains).ToArray();
         ShownTimeline = LineTimeline.Build(line.Read, Kinds, new TypewriterPacing { UnitsPerSecond = TypewriterSpeed }, clips);
         _timeline.Show(ShownTimeline, tracks, _picked.ToHashSet());
+
+        // 고른 것이 모션 하나면 그 커브를 막대 아래에 편다 — 같은 시간의 눈금으로.
+        TimelineBar? bar = _picked.Count == 1 ? ShownTimeline.Bars.FirstOrDefault(b => b.Address == _picked[0]) : null;
+        OutlineCommand? picked = bar is null ? null : ShownOutline?.Steps.SelectMany(s => s.Commands).FirstOrDefault(c => c.Address == bar.Address);
+        ShownMotion = picked is null ? null : clips.Find(picked);
+        _curves.Show(ShownMotion, bar?.Start ?? 0f, () => _timeline.Layout);
         FitTimeline();
 
         TextBox speed = new()
@@ -123,8 +133,35 @@ public partial class MainWindow
         // 뷰는 하나라 앞서 선 자리에서 떼어 낸 뒤 새로 세운다.
         (_timelineScroll.Parent as Panel)?.Children.Remove(_timelineScroll);
 
-        return new StackPanel { Spacing = 4, Children = { caption, _timelineScroll, help } };
+        StackPanel panel = new() { Spacing = 4, Children = { caption, _timelineScroll } };
+
+        if (ShownMotion is { } motion)
+        {
+            panel.Children.Add(MotionCaption(motion));
+        }
+
+        panel.Children.Add(help);
+        return panel;
     }
+
+    // 펴 보인 모션이 무엇인가 — 어디서 왔고(프리셋 · 이 편의 것) 얼마나 길고 끝나면 어떻게 되는가.
+    private static TextBlock MotionCaption(MotionEntry motion)
+    {
+        string source = motion.Source == MotionSource.Shared ? "프리셋" : "이 편의 것";
+        string end = motion.Clip.End == MotionEnd.Restore ? "끝나면 제자리로 돌아온다" : "끝난 자리에 남는다";
+        int keys = motion.Curves.Sum(c => c.Keys.Length);
+
+        return new TextBlock
+        {
+            Text = $"모션 {motion.Clip.Name} — {source}({Path.GetFileName(motion.Path)}) · 길이 {TimeText.Format(motion.Clip.Duration)} · {end} · 커브 {motion.Curves.Count}개 · 키 {keys}개 · 점선은 움직이지 않을 때의 값",
+            FontSize = 11,
+            Foreground = Palette.Dim,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+        };
+    }
+
+    /// <summary>모션 파일을 다시 읽게 한다 — 바깥에서 바뀌었을 수 있다.</summary>
+    private void ForgetMotions() => _motions.Clear();
 
     /// <summary>타임라인을 가로로 넓힌다(1 = 가운데의 폭에 꼭 맞게). 넓히면 가로로 굴려 본다.</summary>
     internal void SetTimelineZoom(double zoom)
@@ -144,6 +181,7 @@ public partial class MainWindow
 
         // 자리를 잡기 전에는(폭 0) 뷰의 기본 폭에 맡긴다.
         _timeline.Width = viewport > 0 ? Math.Floor(viewport * TimelineZoom) : double.NaN;
+        _curves.Width = _timeline.Width;
     }
 
     /// <summary>타자기의 속도를 바꾸고 이 대본에 기억해 둔다 — 글에 걸린 앵커의 어림이 따라 바뀐다.</summary>

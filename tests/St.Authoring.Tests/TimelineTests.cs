@@ -13,8 +13,8 @@ public class TimelineTests
     // 초당 20자, 대사창이 열리는 시간은 0 — 셈하기 쉬운 값이다.
     private static readonly TypewriterPacing Pacing = new() { UnitsPerSecond = 20f };
 
-    private static LineTimeline Timeline(string text, string lineId = "t1", ClipLengths? clips = null)
-        => LineTimeline.Build(Scripts.Read(text, lineId), Director, Pacing, clips ?? ClipLengths.None);
+    private static LineTimeline Timeline(string text, string lineId = "t1", MotionLibrary? clips = null)
+        => LineTimeline.Build(Scripts.Read(text, lineId), Director, Pacing, clips ?? MotionLibrary.None);
 
     private static CommandAddress At(string anchor, CommandKind kind, int index) => new("line:t1", anchor, kind, index);
 
@@ -69,7 +69,7 @@ public class TimelineTests
     public void 종류로_거르면_그_종류의_막대만_남는다()
     {
         LineTimeline timeline = LineTimeline.Build(
-            Scripts.Read(Scripts.Sample, "t1"), new HashSet<CommandKind> { CommandKind.Placement }, Pacing, ClipLengths.None);
+            Scripts.Read(Scripts.Sample, "t1"), new HashSet<CommandKind> { CommandKind.Placement }, Pacing, MotionLibrary.None);
 
         Assert.Equal(new[] { "fade_out" }, timeline.Bars.Select(b => b.Name));
         Assert.Equal(4, timeline.Anchors.Count);
@@ -85,15 +85,49 @@ public class TimelineTests
         File.WriteAllText(Path.Combine(dir, "motions.json"), """{ "schema": "motions/2", "motions": [ { "name": "nod", "duration": 1.0 }, { "name": "hop", "duration": 0.3 } ] }""");
         File.WriteAllText(Path.Combine(dir, "ep01.motions.json"), """{ "schema": "motions/2", "motions": [ { "name": "nod", "duration": 0.4 } ] }""");
 
-        ClipLengths clips = ClipLengths.Load(script);
+        MotionLibrary clips = MotionLibrary.Load(script);
 
         // 그 편의 파일이 모두가 쓰는 파일을 이긴다.
         Assert.Equal(2, clips.Count);
         Assert.Equal(0.4f, Timeline(text, clips: clips).Bars[^1].Duration!.Value, 3);
 
         // 모션 파일이 없으면 길이를 모른다 — 점으로 보인다.
-        Assert.Equal(0, ClipLengths.Load(Path.Combine(Directory.CreateTempSubdirectory("st-clips-").FullName, "a.yarn")).Count);
+        Assert.Equal(0, MotionLibrary.Load(Path.Combine(Directory.CreateTempSubdirectory("st-clips-").FullName, "a.yarn")).Count);
         Assert.Null(Timeline(text).Bars[^1].Duration);
+    }
+
+    [Fact]
+    public void 모션의_커브를_읽는다_어디서_왔는지와_함께()
+    {
+        string dir = Directory.CreateTempSubdirectory("st-motions-").FullName;
+        string script = Path.Combine(dir, "ep01.yarn");
+        File.WriteAllText(Path.Combine(dir, "motions.json"), """
+            { "schema": "motions/2", "motions": [
+              { "name": "hop", "rig": "character", "duration": 0.5, "end": "restore", "channels": [
+                { "node": "CharacterPortrait_Track_Move", "kind": "position",
+                  "x": [ { "t": 0, "v": 0, "inTangent": 0, "outTangent": 0 }, { "t": 0.5, "v": 0, "inTangent": 0, "outTangent": 0 } ],
+                  "y": [ { "t": 0, "v": 0, "inTangent": 0, "outTangent": 0 }, { "t": 0.25, "v": 60, "inTangent": 0, "outTangent": 0 }, { "t": 0.5, "v": 0, "inTangent": 0, "outTangent": 0 } ] } ] },
+              { "name": "깨진 것" }, 7 ] }
+            """);
+        File.WriteAllText(Path.Combine(dir, "ep01.motions.json"), """{ "schema": "motions/2", "motions": [ { "name": "lean", "duration": 1, "end": "commit", "channels": [ { "node": "N", "kind": "euler", "z": [ { "t": 0, "v": 0 }, { "t": 1, "v": 8 } ] } ] } ] }""");
+
+        MotionLibrary motions = MotionLibrary.Load(script);
+
+        // 꼴이 어긋난 것은 건너뛴다.
+        Assert.Equal(2, motions.Count);
+
+        MotionEntry hop = motions.Find("hop")!;
+        Assert.Equal(MotionSource.Shared, hop.Source);
+        Assert.Equal(new[] { "위치 X", "위치 Y" }, hop.Curves.Select(c => c.Label));
+        Assert.Equal(60f, hop.Curves[1].Evaluate(0.25f), 3);
+        Assert.Equal((0f, 60f), hop.Curves[1].Range);
+
+        MotionEntry lean = motions.Find("lean")!;
+        Assert.Equal(MotionSource.Episode, lean.Source);
+        Assert.Equal(Ked.Presentation.Core.MotionEnd.Commit, lean.Clip.End);
+        Assert.Equal("회전 Z", lean.Curves.Single().Label);
+
+        Assert.Null(motions.Find("없는 것"));
     }
 
     // ── 끌어 고치기 ─────────────────────────────────────────────────────────

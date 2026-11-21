@@ -329,7 +329,11 @@ public partial class MainWindow
     internal bool Redo() => Moved(_session?.Redo() == true, "다시 해서 파일에 썼다");
 
     /// <summary>디스크의 대본을 다시 읽는다 — 바깥에서 바뀐 것이 있으면 화면이 따라온다.</summary>
-    internal bool RefreshFromDisk() => Moved(_session?.Refresh() == true, "바깥에서 바뀐 대본을 다시 읽었다 — 그 파일의 되돌리기는 비웠다");
+    internal bool RefreshFromDisk()
+    {
+        ForgetMotions();
+        return Moved(_session?.Refresh() == true, "바깥에서 바뀐 대본을 다시 읽었다 — 그 파일의 되돌리기는 비웠다");
+    }
 
     private bool Moved(bool moved, string status)
     {

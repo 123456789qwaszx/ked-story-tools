@@ -21,7 +21,7 @@ public class TimelineTests
 
     private static LineTimeline Timeline()
         => LineTimeline.Build(
-            YarnLineReader.Read(Script, "t1"), Tracks.ToHashSet(), new TypewriterPacing { UnitsPerSecond = 20f }, ClipLengths.None);
+            YarnLineReader.Read(Script, "t1"), Tracks.ToHashSet(), new TypewriterPacing { UnitsPerSecond = 20f }, MotionLibrary.None);
 
     private static (MainWindow Window, string Path) Open()
     {
@@ -236,6 +236,39 @@ public class TimelineTests
             window.SetKinds(CommandKind.Acting);
 
             Assert.Equal(new[] { "face", "face_swap", "motion" }, window.ShownTimeline!.Bars.Select(b => b.Name));
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 모션을_고르면_그_커브가_타임라인_아래에_펴진다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            string dir = Directory.CreateTempSubdirectory("st-motion-").FullName;
+            File.WriteAllText(Path.Combine(dir, "a.yarn"), "title: A\n---\n<<at start face s1 3>>\n<<at start pause 6fr>>\n<<at start motion s1 hop>>\n가: 하나 둘 셋 넷 다섯 #line:t1\n===\n");
+            File.WriteAllText(Path.Combine(dir, "motions.json"), """
+                { "schema": "motions/2", "motions": [ { "name": "hop", "rig": "character", "duration": 0.5, "end": "restore", "channels": [
+                  { "node": "CharacterPortrait_Track_Move", "kind": "position",
+                    "x": [ { "t": 0, "v": 0, "inTangent": 0, "outTangent": 40 }, { "t": 0.5, "v": 12, "inTangent": 0, "outTangent": 0 } ],
+                    "y": [ { "t": 0, "v": 0, "inTangent": 0, "outTangent": 0 }, { "t": 0.25, "v": 60, "inTangent": 0, "outTangent": 0 }, { "t": 0.5, "v": 0, "inTangent": 0, "outTangent": 0 } ] } ] } ] }
+                """);
+
+            MainWindow window = new(Path.Combine(Directory.CreateTempSubdirectory("st-motion-set-").FullName, "settings.json"));
+            window.Show();
+            window.OpenPath(dir);
+            window.SelectLine("t1");
+            Assert.Null(window.ShownMotion);
+
+            Assert.True(window.SelectCommand("t1/start/acting/1"));
+
+            Assert.Equal("hop", window.ShownMotion!.Clip.Name);
+            Assert.Equal(2, window.ShownMotion.Curves.Count);
+            RenderShots.Save(window, "k6-1-motion");
+
+            // 모션이 아닌 것을 고르면 걷힌다.
+            window.SelectCommand("t1/start/acting/0");
+            Assert.Null(window.ShownMotion);
             window.Close();
         });
     }

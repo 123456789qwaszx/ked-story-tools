@@ -65,7 +65,7 @@ public sealed class LineTimeline
     /// <summary>그리는 폭이 덮어야 하는 때(초) — 줄의 길이와 가장 늦게 끝나는 막대 가운데 뒤의 것.</summary>
     public float End => Math.Max(Ready, Bars.Count == 0 ? 0f : Bars.Max(b => b.Start + (b.Duration ?? 0f)));
 
-    public static LineTimeline Build(LineRead line, IReadOnlySet<CommandKind> kinds, TypewriterPacing pacing, ClipLengths clips)
+    public static LineTimeline Build(LineRead line, IReadOnlySet<CommandKind> kinds, TypewriterPacing pacing, MotionLibrary clips)
     {
         ArgumentNullException.ThrowIfNull(line);
         ArgumentNullException.ThrowIfNull(kinds);
