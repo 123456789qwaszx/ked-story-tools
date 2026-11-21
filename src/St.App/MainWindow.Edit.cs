@@ -136,6 +136,7 @@ public partial class MainWindow
         actions.Children.Add(remove);
         actions.Children.Add(copy);
         _inspector.Children.Add(actions);
+        BuildMotionSection(editable);
 
         _inspector.Children.Add(FormGrid.Hint("지연을 바꾸면 같은 앵커에서 이 뒤에 오는 커맨드도 같은 만큼 움직인다. 이 커맨드만 옮기려면 타임라인에서 막대를 끈다.", Palette.Faint));
     }
@@ -339,6 +340,8 @@ public partial class MainWindow
     {
         if (moved)
         {
+            // 되돌린 칸이 모션 파일의 것일 수 있다.
+            ForgetMotions();
             _editMessage = null;
             ReloadKeepingSelection();
             _status.Text = status;

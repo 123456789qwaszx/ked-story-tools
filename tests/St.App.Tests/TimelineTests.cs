@@ -272,4 +272,55 @@ public class TimelineTests
             window.Close();
         });
     }
+
+    [Fact]
+    public void 함께_쓰는_모션을_이_줄의_것으로_풀고_키를_솎는다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            // 프레임마다 구운 호 하나를 두 줄이 함께 쓴다.
+            string keys = string.Join(", ", Enumerable.Range(0, 16).Select(i =>
+            {
+                double Value(int n) => 60 * Math.Sin(Math.PI * n / 15);
+                double slope = i is 0 or 15 ? 0 : (Value(i + 1) - Value(i - 1)) * 15;
+                return FormattableString.Invariant($"{{ \"t\": {i / 30.0:0.####}, \"v\": {Value(i):0.##}, \"inTangent\": {slope:0.##}, \"outTangent\": {slope:0.##} }}");
+            }));
+
+            string dir = Directory.CreateTempSubdirectory("st-unpack-").FullName;
+            string script = Path.Combine(dir, "a.yarn");
+            string motions = Path.Combine(dir, "a.motions.json");
+            string yarn = "title: A\n---\n<<at start motion s1 hop>>\n가: 하나 둘 셋 넷 다섯 #line:t1\n\n<<at start motion s2 hop>>\n나: 여섯 #line:t2\n===\n";
+            File.WriteAllText(script, yarn);
+            File.WriteAllText(motions, "{\n \"schema\": \"motions/2\",\n \"motions\": [\n  { \"name\": \"hop\", \"rig\": \"character\", \"duration\": 0.5, \"end\": \"restore\", \"channels\": [ { \"node\": \"N\", \"kind\": \"position\", \"y\": [ " + keys + " ] } ] }\n ]\n}\n");
+            string before = File.ReadAllText(motions);
+
+            MainWindow window = new(Path.Combine(Directory.CreateTempSubdirectory("st-unpack-set-").FullName, "settings.json"));
+            window.Show();
+            window.OpenPath(dir);
+            window.SelectLine("t1");
+            window.SelectCommand("t1/start/acting/0");
+            Assert.Equal(2, window.ShownMotionUses);
+
+            Assert.True(window.UnpackPickedMotion()!.Changed);
+
+            // 이 줄만 새 이름을 가리킨다 — 커브는 같고, 이제 이 줄만 쓴다.
+            Assert.Equal(yarn.Replace("motion s1 hop", "motion s1 hop_t1"), File.ReadAllText(script));
+            Assert.Equal("hop_t1", window.ShownMotion!.Clip.Name);
+            Assert.Equal(1, window.ShownMotionUses);
+            Assert.Equal(16, window.ShownMotion.Curves[0].Keys.Length);
+
+            Assert.True(window.SimplifyPickedMotion()!.Changed);
+            Assert.InRange(window.ShownMotion!.Curves[0].Keys.Length, 3, 7);
+            RenderShots.Save(window, "k6-2-unpacked");
+
+            // 둘 다 되돌린다 — 모션 파일도 대본도 처음 그대로.
+            Assert.True(window.Undo());
+            Assert.Equal(16, window.ShownMotion!.Curves[0].Keys.Length);
+            Assert.True(window.Undo());
+            Assert.Equal(yarn, File.ReadAllText(script));
+            Assert.Equal(before, File.ReadAllText(motions));
+            Assert.Equal("hop", window.ShownMotion!.Clip.Name);
+            window.Close();
+        });
+    }
 }

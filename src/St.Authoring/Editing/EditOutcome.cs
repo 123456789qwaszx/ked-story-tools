@@ -43,6 +43,10 @@ public sealed class EditOutcome
     internal static EditOutcome Unchanged(string text, LineRead line, CommandAddress? target)
         => new(true, text) { Line = line, Target = target };
 
+    /// <summary>대본은 그대로이고 모션 파일만 바뀌었다(키 솎기).</summary>
+    internal static EditOutcome MotionOnly(string text, LineRead line, CommandAddress? target)
+        => new(true, text) { Changed = true, Line = line, Target = target };
+
     internal static EditOutcome Applied(
         string text, LineRead line, CommandAddress? target, string? removed, string? added, IReadOnlyList<string> warnings)
         => new(true, text)

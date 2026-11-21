@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Ked.Presentation.Core;
+using St.Authoring.Motions;
 
 namespace St.Authoring.Reading;
 
@@ -77,7 +78,6 @@ public sealed class MotionLibrary
 
     private const string MotionCommand = "motion";
     private const string MotionCatalog = "motion";
-    private const string SharedFile = "motions.json";
 
     private readonly IReadOnlyDictionary<string, MotionEntry> _motions;
 
@@ -93,18 +93,16 @@ public sealed class MotionLibrary
     {
         ArgumentNullException.ThrowIfNull(scriptPath);
 
-        string folder = Path.GetDirectoryName(Path.GetFullPath(scriptPath)) ?? string.Empty;
         Dictionary<string, MotionEntry> motions = new(StringComparer.Ordinal);
 
-        (string File, MotionSource Source)[] files =
+        (string Path, MotionSource Source)[] files =
         [
-            (SharedFile, MotionSource.Shared),
-            (Path.GetFileNameWithoutExtension(scriptPath) + ".motions.json", MotionSource.Episode),
+            (MotionFile.SharedPath(scriptPath), MotionSource.Shared),
+            (MotionFile.EpisodePath(scriptPath), MotionSource.Episode),
         ];
 
-        foreach ((string file, MotionSource source) in files)
+        foreach ((string path, MotionSource source) in files)
         {
-            string path = Path.Combine(folder, file);
 
             if (!File.Exists(path))
             {
@@ -143,25 +141,7 @@ public sealed class MotionLibrary
     public MotionEntry? Find(string name) => _motions.GetValueOrDefault(name);
 
     /// <summary>그 커맨드가 가리키는 모션. 모션 커맨드가 아니거나 모르는 이름이면 null.</summary>
-    public MotionEntry? Find(LineReadCommand command)
-    {
-        ArgumentNullException.ThrowIfNull(command);
-
-        if (command.Name != MotionCommand)
-        {
-            return null;
-        }
-
-        foreach (BoundArg arg in command.Bound)
-        {
-            if (arg.Spec.Catalog == MotionCatalog && arg.Value is { } name && Find(name) is { } entry)
-            {
-                return entry;
-            }
-        }
-
-        return null;
-    }
+    public MotionEntry? Find(LineReadCommand command) => NameOf(command) is { } name ? Find(name) : null;
 
     /// <summary>화면에 편 그 커맨드가 가리키는 모션. 모션 커맨드가 아니거나 모르는 이름이면 null.</summary>
     public MotionEntry? Find(OutlineCommand command)
@@ -171,6 +151,36 @@ public sealed class MotionLibrary
         return command.Name == MotionCommand && command.Args.FirstOrDefault(a => a.Spec.Catalog == MotionCatalog && a.Value.Length > 0) is { } arg
             ? Find(arg.Value)
             : null;
+    }
+
+    /// <summary>그 대본 파일에서 그 이름의 모션을 트는 커맨드의 수 — 하나뿐이면 그 줄의 것이다.</summary>
+    public static int Uses(YarnFileRead file, string name)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+
+        return file.Lines.SelectMany(l => l.Steps).SelectMany(s => s.Commands).Count(c => NameOf(c) == name);
+    }
+
+    /// <summary>모션 커맨드가 가리키는 이름과 그 칸. 모션 커맨드가 아니거나 이름을 적지 않았으면 null.</summary>
+    public static string? NameOf(LineReadCommand command) => Named(command)?.Value;
+
+    /// <summary>모션 커맨드에서 이름을 적는 칸.</summary>
+    public static BoundArg? Named(LineReadCommand command)
+    {
+        ArgumentNullException.ThrowIfNull(command);
+
+        if (command.Name == MotionCommand)
+        {
+            foreach (BoundArg arg in command.Bound)
+            {
+                if (arg.Spec.Catalog == MotionCatalog && arg.Value is { Length: > 0 })
+                {
+                    return arg;
+                }
+            }
+        }
+
+        return null;
     }
 
     /// <summary>그 커맨드의 길이(초). 모르면 null — <see cref="LineTimetable.Build"/>의 길이를 묻는 함수로 넘긴다.</summary>
