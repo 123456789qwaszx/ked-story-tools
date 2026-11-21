@@ -30,6 +30,14 @@ public static partial class LineEditor
     [GeneratedRegex(@"\byarn:\d+")]
     private static partial Regex SourceLinePattern();
 
+    private const string CardTagPrefix = "card:";
+
+    [GeneratedRegex(@"^[A-Za-z0-9_]+(#\d+)?$")]
+    private static partial Regex CardTagPattern();
+
+    [GeneratedRegex(@"//\s*card:(?<id>[A-Za-z0-9_]+)(#(?<n>\d+))?\s*$", RegexOptions.Multiline)]
+    private static partial Regex CardCommentPattern();
+
     /// <summary>조작 하나를 한다. 거절하면 <see cref="EditOutcome.Text"/>는 받은 글 그대로다.</summary>
     public static EditOutcome Apply(string text, LineEdit edit, StageCommandSpecTable? specs = null)
     {
@@ -44,6 +52,114 @@ public static partial class LineEditor
         {
             return EditOutcome.Refused(text, refusal.Message);
         }
+    }
+
+    /// <summary>
+    /// 조작 여럿을 차례로 한다 — 모두 받아들여져야 고친 글이 나온다(하나라도 거절되면 받은 글 그대로).
+    /// 카드 한 장을 펼치는 것처럼 한 덩이인 고침을 되돌리기 한 칸으로 묶을 때 쓴다.
+    /// </summary>
+    public static EditOutcome ApplyAll(string text, IReadOnlyList<LineEdit> edits, StageCommandSpecTable? specs = null)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(edits);
+
+        string current = text;
+        EditOutcome? last = null;
+        List<string> warnings = [];
+        List<string> removed = [];
+        List<string> added = [];
+
+        for (int i = 0; i < edits.Count; i++)
+        {
+            EditOutcome outcome = Apply(current, edits[i], specs);
+
+            if (!outcome.Ok)
+            {
+                return EditOutcome.Refused(text, edits.Count == 1 ? outcome.Error : $"{i + 1}번째 — {outcome.Error}");
+            }
+
+            if (outcome.Changed)
+            {
+                current = outcome.Text;
+                warnings.AddRange(outcome.Warnings);
+
+                if (outcome.Removed is not null)
+                {
+                    removed.Add(outcome.Removed);
+                }
+
+                if (outcome.Added is not null)
+                {
+                    added.Add(outcome.Added);
+                }
+            }
+
+            last = outcome;
+        }
+
+        if (last is null || current == text)
+        {
+            return last ?? EditOutcome.Refused(text, "할 조작이 없다");
+        }
+
+        return EditOutcome.Applied(
+            current, last.Line!, last.Target,
+            removed.Count > 0 ? string.Join('\n', removed) : null,
+            added.Count > 0 ? string.Join('\n', added) : null,
+            warnings);
+    }
+
+    /// <summary>
+    /// 칸마다 적을 글(null이나 빈 글이면 적지 않는다)을 대본의 인자 열로 편다 — 더할 커맨드를 지을 때 쓴다.
+    /// 뒤 칸을 적었는데 앞 칸이 비어 있으면 생략값으로 채우고, 생략값이 없으면 false와 까닭.
+    /// </summary>
+    public static bool TryComposeArguments(
+        StageCommandSpec spec, IReadOnlyList<string?> values, out IReadOnlyList<string> arguments, out string error)
+    {
+        ArgumentNullException.ThrowIfNull(spec);
+        ArgumentNullException.ThrowIfNull(values);
+
+        string?[] desired = new string?[spec.Args.Count];
+
+        for (int i = 0; i < desired.Length && i < values.Count; i++)
+        {
+            desired[i] = string.IsNullOrWhiteSpace(values[i]) ? null : values[i]!.Trim();
+        }
+
+        try
+        {
+            arguments = Compose(spec, desired);
+            error = string.Empty;
+            return true;
+        }
+        catch (Refusal refusal)
+        {
+            arguments = [];
+            error = refusal.Message;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 이 줄에 그 카드를 펼칠 때 남길 출처 — 처음이면 카드 ID 그대로, 같은 카드가 이미 있으면 둘째부터 <c>F02#2</c>(P5).
+    /// </summary>
+    public static string NextCardTag(string text, LineRead line, string cardId)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(line);
+        ArgumentNullException.ThrowIfNull(cardId);
+
+        int highest = 0;
+
+        foreach (Match match in CardCommentPattern().Matches(text.Substring(line.Block.Start, line.Block.Length).Replace("\r\n", "\n")))
+        {
+            if (match.Groups["id"].Value == cardId)
+            {
+                highest = Math.Max(highest, match.Groups["n"].Success ? int.Parse(match.Groups["n"].Value, CultureInfo.InvariantCulture) : 1);
+            }
+        }
+
+        return highest == 0 ? cardId : string.Create(CultureInfo.InvariantCulture, $"{cardId}#{highest + 1}");
     }
 
     /// <summary>이 줄을 고칠 수 있는가 — LineId가 있고 옛 표기가 없어야 한다. 아니면 까닭을 돌려준다.</summary>
@@ -333,6 +449,17 @@ public static partial class LineEditor
         }
 
         string[] tokens = args.ToArray();
+        string? comment = null;
+
+        if (edit.Card is not null)
+        {
+            if (!CardTagPattern().IsMatch(edit.Card))
+            {
+                throw new Refusal($"카드의 출처 '{edit.Card}'가 카드 ID(E04 · F02#2)의 꼴이 아니다");
+            }
+
+            comment = CardTagPrefix + edit.Card;
+        }
 
         return new Plan(Change.Insert, at, AtBody(edit.Anchor, spec.Name, tokens), at, now =>
         {
@@ -340,7 +467,10 @@ public static partial class LineEditor
             return read is not null && read.Name == spec.Name && read.Anchor == edit.Anchor && read.Args.SequenceEqual(tokens)
                 ? null
                 : $"앵커 '{edit.Anchor}'에 <<{spec.Name}>>이 그대로 읽히지 않는다";
-        });
+        })
+        {
+            Comment = comment,
+        };
     }
 
     // ── 커맨드 빼기 ─────────────────────────────────────────────────────────
@@ -707,7 +837,11 @@ public static partial class LineEditor
     /// <summary>묶음의 한 줄에 할 일. 줄 번호는 고치기 전 파일의 것(1부터)이다.</summary>
     /// <param name="TargetLine">고친 뒤 파일에서 대상 커맨드가 있는 줄. 대상이 커맨드가 아니거나 사라지면 null.</param>
     /// <param name="Check">고친 줄을 다시 읽은 것을 받아, 고친 값과 다르면 까닭을 돌려준다.</param>
-    private sealed record Plan(Change Change, int FileLine, string? Body, int? TargetLine, Func<LineRead, string?> Check);
+    private sealed record Plan(Change Change, int FileLine, string? Body, int? TargetLine, Func<LineRead, string?> Check)
+    {
+        /// <summary>넣는 줄의 끝에 붙일 주석(<c>//</c> 뒤의 글). 없으면 null.</summary>
+        public string? Comment { get; init; }
+    }
 
     private readonly record struct AtLine(string Beat, IReadOnlyList<string> Args);
 
@@ -809,7 +943,7 @@ public static partial class LineEditor
                         throw new Refusal($"{plan.FileLine}행은 이 줄의 묶음 밖이다 — 고치지 않는다");
                     }
 
-                    string inserted = $"{_indent}<<{plan.Body}>>{_eol}";
+                    string inserted = $"{_indent}<<{plan.Body}>>{(plan.Comment is null ? string.Empty : $" // {plan.Comment}")}{_eol}";
                     added = inserted.Trim();
                     lines.Insert(index, inserted);
                     break;

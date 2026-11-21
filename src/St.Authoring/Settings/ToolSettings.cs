@@ -18,6 +18,12 @@ public sealed class ToolSettings
     /// <summary>마지막으로 연 대본의 경로(파일이나 폴더) — 다음에 켜면 다시 연다.</summary>
     public string? LastPath { get; set; }
 
+    /// <summary>
+    /// 대본마다 쓰는 카드 카탈로그의 폴더(작업공간 <c>catalog/</c> — cards.json · kinds.json이 든 곳).
+    /// 열쇠는 연 대본의 경로다(docs/PLAN.md U3).
+    /// </summary>
+    public Dictionary<string, string> Catalogs { get; set; } = [];
+
     /// <summary>설정 파일을 읽지 못한 까닭. 읽었거나 파일이 없으면 null.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string? LoadProblem { get; private set; }

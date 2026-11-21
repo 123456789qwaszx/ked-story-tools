@@ -33,9 +33,12 @@ public sealed class StagingEditor
     /// <summary>지금의 글을 줄 읽기로 읽는다.</summary>
     public YarnFileRead Read() => YarnLineReader.ReadFile(Text, LineEditor.SourceName, _specs);
 
-    public EditOutcome Apply(LineEdit edit)
+    public EditOutcome Apply(LineEdit edit) => Apply([edit]);
+
+    /// <summary>조작 여럿을 한 덩이로 한다 — 모두 받아들여져야 바뀌고, 되돌리기 한 칸이다.</summary>
+    public EditOutcome Apply(IReadOnlyList<LineEdit> edits)
     {
-        EditOutcome outcome = LineEditor.Apply(Text, edit, _specs);
+        EditOutcome outcome = LineEditor.ApplyAll(Text, edits, _specs);
 
         if (outcome is { Ok: true, Changed: true })
         {

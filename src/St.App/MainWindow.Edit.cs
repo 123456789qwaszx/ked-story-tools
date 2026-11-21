@@ -130,6 +130,8 @@ public partial class MainWindow
         _inspector.Children.Add(Hint(step.Kind == LineAnchorKind.End
             ? "글이 다 보인 뒤, 넘김을 받기까지의 최소 시간이다."
             : "이 앵커가 열린 뒤 다음 앵커가 열리기까지의 최소 시간이다. 글이 있는 구간은 글이 쳐지는 동안 더 늘어난다.", Palette.Faint));
+
+        BuildAddSection(step, editable);
     }
 
     // ── 칸 ──────────────────────────────────────────────────────────────────
@@ -181,8 +183,48 @@ public partial class MainWindow
         string written = arg.Written ? arg.Value : string.Empty;
         string placeholder = arg.Written || arg.Value.Length == 0 ? (spec.Optional ? "적지 않음" : "꼭 적는다") : $"{arg.Value} — 적지 않음";
 
-        return TextBoxFor(written, placeholder, editable, text => new SetValue(command.Address, arg.Name, text.Length == 0 ? null : text));
+        TextBox text = TextBoxFor(written, placeholder, editable, value => new SetValue(command.Address, arg.Name, value.Length == 0 ? null : value));
+        IReadOnlyList<string> candidates = Candidates(spec);
+
+        if (!editable || candidates.Count == 0)
+        {
+            return text;
+        }
+
+        // 후보를 누르면 바로 그 값으로 고친다.
+        return new StackPanel
+        {
+            Spacing = 3,
+            Children = { text, CandidateChips(candidates, written, value => Commit(build, new SetValue(command.Address, arg.Name, value))) },
+        };
     }
+
+    /// <summary>값의 후보를 누르는 딱지로 — 지금 값은 칠해 보인다. 많으면 앞의 것만 보인다.</summary>
+    private static WrapPanel CandidateChips(IReadOnlyList<string> candidates, string current, Action<string> pick)
+    {
+        const int shown = 14;
+        WrapPanel panel = new();
+
+        foreach (string candidate in candidates.Take(shown))
+        {
+            Border chip = Palette.Chip(candidate, candidate == current ? null : Palette.Dim, candidate == current ? Palette.Picked : null, Palette.Mono);
+            chip.Margin = new Thickness(0, 0, 4, 3);
+            chip.Cursor = new Cursor(StandardCursorType.Hand);
+            chip.PointerPressed += (_, _) => pick(candidate);
+            panel.Children.Add(chip);
+        }
+
+        if (candidates.Count > shown)
+        {
+            panel.Children.Add(new TextBlock { Text = $"… {candidates.Count - shown}개 더", FontSize = 11, Foreground = Palette.Faint, VerticalAlignment = VerticalAlignment.Center });
+        }
+
+        return panel;
+    }
+
+    /// <summary>그 칸에 적을 값의 후보 — 고른 줄이 든 파일에 이미 쓰인 값(슬롯 · 표정 · 모션 …).</summary>
+    private IReadOnlyList<string> Candidates(CommandArgSpec spec)
+        => _lines.SelectedItem is LibraryLine line ? ValueCandidates.Collect(line.File.Read.Lines).For(spec) : [];
 
     private TextBox TimeBox(string text, string placeholder, bool editable, Func<string, LineEdit> edit)
     {
@@ -258,14 +300,20 @@ public partial class MainWindow
     }
 
     /// <summary>고른 줄에 조작 하나를 한다 — 받아들여지면 바로 파일에 쓰이고, 화면은 새로 읽은 대본으로 다시 선다.</summary>
-    internal EditOutcome? ApplyEdit(LineEdit edit)
+    internal EditOutcome? ApplyEdit(LineEdit edit) => ApplyEdits([edit], keepStep: edit is SetGap);
+
+    /// <summary>
+    /// 고른 줄에 조작 여럿을 한 덩이로 한다(카드 한 장) — 되돌리기 한 칸이다.
+    /// <paramref name="keepStep"/>이면 고친 뒤에도 앵커를 고른 채로 둔다(이어서 더할 수 있게).
+    /// </summary>
+    internal EditOutcome? ApplyEdits(IReadOnlyList<LineEdit> edits, bool keepStep)
     {
         if (_session is null || _lines.SelectedItem is not LibraryLine line)
         {
             return null;
         }
 
-        EditOutcome outcome = _session.Apply(line.File.Script.Path, edit);
+        EditOutcome outcome = _session.Apply(line.File.Script.Path, edits);
 
         if (!outcome.Ok)
         {
@@ -282,14 +330,7 @@ public partial class MainWindow
         }
 
         // 고친 커맨드를 그대로 쥔다 — 지연을 바꾸면 주소의 순번이 달라질 수 있어 결과가 알려 준 주소로 옮긴다.
-        if (edit is SetGap)
-        {
-            PickedCommand = null;
-        }
-        else
-        {
-            PickedCommand = outcome.Target;
-        }
+        PickedCommand = keepStep ? null : outcome.Target;
 
         ReloadKeepingSelection();
         _status.Text = outcome.Warnings.Count > 0
@@ -392,7 +433,10 @@ public partial class MainWindow
                 continue;
             }
 
-            Control? editor = grid.Children.FirstOrDefault(c => c != caption && Grid.GetRow(c) == Grid.GetRow(caption));
+            Control? cell = grid.Children.FirstOrDefault(c => c != caption && Grid.GetRow(c) == Grid.GetRow(caption));
+
+            // 후보가 딸린 칸은 글 칸과 후보를 한 덩이로 싼다.
+            Control? editor = cell is StackPanel wrapped ? wrapped.Children.FirstOrDefault() : cell;
 
             switch (editor)
             {
@@ -414,7 +458,7 @@ public partial class MainWindow
         return false;
     }
 
-    /// <summary>오른쪽에 선 칸의 이름 — 차례대로.</summary>
+    /// <summary>오른쪽 맨 위에 선 칸(고른 커맨드나 스텝의 것)의 이름 — 차례대로. 더하기의 칸은 들지 않는다.</summary>
     internal IReadOnlyList<string> InspectorFields
-        => _inspector.Children.OfType<Grid>().SelectMany(g => g.Children.OfType<TextBlock>()).Select(t => t.Text ?? string.Empty).ToList();
+        => _inspector.Children.OfType<Grid>().Take(1).SelectMany(g => g.Children.OfType<TextBlock>()).Select(t => t.Text ?? string.Empty).ToList();
 }

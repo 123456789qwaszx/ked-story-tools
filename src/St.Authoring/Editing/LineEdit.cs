@@ -17,8 +17,10 @@ public sealed record SetValue(CommandAddress Target, string Arg, string? Value) 
 /// <summary>
 /// 커맨드 더하기 — 그 앵커에 <c>&lt;&lt;at 앵커 이름 인자…&gt;&gt;</c> 한 줄.
 /// <paramref name="KindIndex"/>를 주면 그 종류의 그 순번이 되게 끼우고(뒤의 것이 밀린다), 없으면 앵커의 맨 뒤에 붙인다.
+/// <paramref name="Card"/>를 주면 줄 끝에 카드의 출처를 남긴다(<c>// card:E04</c> — docs/PLAN.md P5).
 /// </summary>
-public sealed record AddCommand(string LineId, string Anchor, string Name, IReadOnlyList<string> Args, int? KindIndex = null)
+public sealed record AddCommand(
+    string LineId, string Anchor, string Name, IReadOnlyList<string> Args, int? KindIndex = null, string? Card = null)
     : LineEdit(LineId);
 
 /// <summary>커맨드 빼기 — 그 <c>&lt;&lt;at&gt;&gt;</c> 한 줄.</summary>

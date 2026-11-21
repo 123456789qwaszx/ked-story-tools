@@ -26,8 +26,9 @@ public static partial class StCli
 
         고치기 — 그 줄의 커맨드 묶음만 다시 쓴다. 깨진 yarn이 되면 거절하고 쓰지 않는다
           st set    <경로> <주소> <칸> <값>             값 바꾸기 (값 대신 --clear면 그 칸을 비운다)
-          st add    <경로> <LineId> <앵커> <커맨드> [인자…] [--index <순번>]
-                                                       커맨드 더하기 — 앵커의 맨 뒤에, --index면 그 종류의 그 순번에
+          st add    <경로> <LineId> <앵커> <커맨드> [인자…] [--index <순번>] [--card <카드 ID>]
+                                                       커맨드 더하기 — 앵커의 맨 뒤에, --index면 그 종류의 그 순번에.
+                                                       --card면 줄 끝에 출처를 남긴다(// card:E04)
           st remove <경로> <주소>                      커맨드 빼기
           st delay  <경로> <주소> <길이>                지연 바꾸기 — 앵커가 열린 뒤 그 커맨드가 시작하기까지
           st gap    <경로> <LineId> <앵커> <길이>       간격 바꾸기 — 그 앵커 뒤 다음 앵커까지의 최소 시간 (--clear면 걷는다)
@@ -287,9 +288,9 @@ public static partial class StCli
 
     private static LineEdit AddOf(Arguments parsed)
     {
-        parsed.ExpectAtLeast(4, "st add <경로> <LineId> <앵커> <커맨드> [인자…] [--index <순번>]");
+        parsed.ExpectAtLeast(4, "st add <경로> <LineId> <앵커> <커맨드> [인자…] [--index <순번>] [--card <카드 ID>]");
         return new AddCommand(
-            parsed.Positional[1], parsed.Positional[2], parsed.Positional[3], parsed.Positional.Skip(4).ToArray(), parsed.Index);
+            parsed.Positional[1], parsed.Positional[2], parsed.Positional[3], parsed.Positional.Skip(4).ToArray(), parsed.Index, parsed.Card);
     }
 
     private static LineEdit RemoveOf(Arguments parsed)

@@ -21,6 +21,10 @@ public partial class MainWindow
         Button reload = new() { Content = "다시 읽기" };
         reload.Click += (_, _) => RefreshFromDisk();
 
+        Button catalog = new() { Content = "카드 폴더…" };
+        catalog.Click += async (_, _) => await PickCatalogAsync();
+        ToolTip.SetTip(catalog, "연출 카드의 카탈로그(cards.json · kinds.json이 든 폴더)를 고른다 — 이 대본에 기억해 둔다");
+
         _undoButton.Click += (_, _) => Undo();
         _redoButton.Click += (_, _) => Redo();
         ToolTip.SetTip(_undoButton, "Ctrl+Z — 마지막 고침을 되돌려 파일에 쓴다");
@@ -30,7 +34,7 @@ public partial class MainWindow
         // 창으로 돌아오면 디스크를 다시 본다 — 다른 도구가 대본을 다시 냈을 수 있다.
         Activated += (_, _) => RefreshFromDisk();
 
-        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { open, _undoButton, _redoButton, reload, _pathText } };
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { open, _undoButton, _redoButton, reload, catalog, _pathText } };
     }
 
     private async Task PickFolderAsync()
@@ -60,6 +64,7 @@ public partial class MainWindow
         _pathText.Text = _session.Root;
         _settings.LastPath = _session.Root;
         _settings.Save(_settingsPath);
+        LoadRememberedCatalog();
         ResetPickers();
     }
 }

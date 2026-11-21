@@ -20,6 +20,8 @@ public static partial class StCli
 
         public string? Specs { get; private set; }
 
+        public string? Card { get; private set; }
+
         public int? Index { get; private set; }
 
         public bool Json { get; private set; }
@@ -61,6 +63,9 @@ public static partial class StCli
                         break;
                     case "--specs":
                         parsed.Specs = Value(args, ref i);
+                        break;
+                    case "--card":
+                        parsed.Card = Value(args, ref i);
                         break;
                     case "--index":
                         string text = Value(args, ref i);

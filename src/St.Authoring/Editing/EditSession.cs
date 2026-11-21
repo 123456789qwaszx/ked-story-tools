@@ -46,10 +46,13 @@ public sealed class EditSession
         => new(path, specs, ScriptLibrary.Open(path, specs));
 
     /// <summary>그 파일의 줄에 조작 하나를 하고, 바뀌었으면 바로 파일에 쓴다.</summary>
-    public EditOutcome Apply(string path, LineEdit edit)
+    public EditOutcome Apply(string path, LineEdit edit) => Apply(path, [edit]);
+
+    /// <summary>그 파일에 조작 여럿을 한 덩이로 한다 — 모두 받아들여져야 쓰고, 되돌리기 한 칸이다.</summary>
+    public EditOutcome Apply(string path, IReadOnlyList<LineEdit> edits)
     {
         ArgumentNullException.ThrowIfNull(path);
-        ArgumentNullException.ThrowIfNull(edit);
+        ArgumentNullException.ThrowIfNull(edits);
 
         FileState state;
 
@@ -62,7 +65,7 @@ public sealed class EditSession
             return EditOutcome.Refused(string.Empty, $"파일을 읽지 못했다 — {exception.Message}");
         }
 
-        EditOutcome outcome = state.Editor.Apply(edit);
+        EditOutcome outcome = state.Editor.Apply(edits);
 
         if (outcome is not { Ok: true, Changed: true })
         {
