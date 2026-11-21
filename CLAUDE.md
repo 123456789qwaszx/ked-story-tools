@@ -1,6 +1,6 @@
 # ked-story-tools
 
-연출가가 yarn을 보지 않고 연출을 고치는 툴(.NET 10 + Avalonia 12) — 줄(LineId) · 스텝(앵커) · 종류로 읽고 고친다. **지금은 K4-5까지다 — 줄 고치기와 명령줄(`st`), 화면에서 읽고 고치고(값 · 빼기 · 지연 · 간격) 더하고(어휘 · 카드) 타임라인에서 끌어 고치기, 여럿 고르기 · 복사 · 단축키 · 맞대기, 그리고 줄의 모션(K6-2 — 커브 보기 · 풀기 · 키 솎기).**
+연출가가 yarn을 보지 않고 연출을 고치는 툴(.NET 10 + Avalonia 12) — 줄(LineId) · 스텝(앵커) · 종류로 읽고 고친다. **지금은 K4-5까지다 — 줄 고치기와 명령줄(`st`), 화면에서 읽고 고치고(값 · 빼기 · 지연 · 간격) 더하고(어휘 · 카드) 타임라인에서 끌어 고치기, 여럿 고르기 · 복사 · 단축키 · 맞대기, 그리고 줄의 모션(K6-4 — 풀기 · 키 솎기 · 그래프로 키 고치기).**
 
 - **먼저 읽을 것**: `docs/PLAN.md`(무엇을 왜 · 정한 것 · 부품 · 단계) → `docs/handoff/`(세션마다 넘겨받을 일) → `docs/CLI.md`(`st`의 쓰는 법 — 다른 세션의 AI가 본다) · `docs/USER-GUIDE.md`(화면의 쓰는 법). 단계가 끝날 때마다 계획서에 결정과 상태를 적는다.
 - 관계: 정본은 yarn이고 재생은 `ked-presentation-runtime`이 한다. 이 툴은 무대를 그리지 않는다. 명세 표와 줄 읽기는 런타임 코어의 것이고 여기서는 사본을 쓴다 — **코어 사본은 고치지 않는다**(필요한 것은 런타임에서 먼저 정한다. 동기화는 `src/Ked.Presentation.Core/vendoring.md`).
@@ -41,6 +41,7 @@ ST_RENDER_DIR=<폴더> dotnet test tests/St.App.Tests -c Release
 - `TreatWarningsAsErrors` — 안 쓰는 필드 · using · 인자는 빌드가 막는다.
 - **yarn을 쓰는 길은 `LineEditor` 하나다** — 화면도 CLI도 조작(`LineEdit`)을 지난다. 조작 하나 = 되돌리기 한 칸, 같은 값은 기록하지 않는다(`StagingEditor.Revision`). 화면은 `EditSession`을 지나 조작마다 바로 파일에 쓴다 — 바깥에서 바뀐 파일은 덮어쓰지 않는다.
 - **모션 파일(`motions/2`)을 쓰는 길은 `Motions/MotionFile` + `EditSession`이다** — 고친 모션만 다시 쓰고 나머지는 바이트 하나 바뀌지 않는다. 모두가 쓰는 `motions.json`은 고치지 않는다(줄의 것으로 풀어 그 편의 파일에서 고친다 — `docs/PLAN.md` §4.8).
+- **`src/Mt.Graph` · `src/Mt.Graph.Avalonia`는 `ked-motion-tool-characterRig`의 사본이다 — 고치지 않는다**(코어 사본과 같다. 필요한 것은 그쪽에서 먼저 정한다 — `src/Mt.Graph/vendoring.md`). 이 툴의 것은 `Motions/MotionGraphEditor`다.
 - **고친 줄의 커맨드 묶음만 다시 쓴다** — 파일의 나머지는 바이트 하나 바뀌지 않는다. 깨진 yarn은 쓰지 않는다. 시험이 지킨다.
 - **대사 원문이 든 대본은 이 저장소에 넣지 않는다** — 시험에는 지어낸 대본과 런타임의 데모 대본(`tests/St.Authoring.Tests/Fixtures`)만 쓴다. 작업공간의 카드(`catalog/`)도 넣지 않는다 — 시험의 카탈로그는 꼴만 본뜬 것이다.
 - `st`의 출력 · 조작의 규칙을 바꾸면 `docs/CLI.md`를 같이 고친다. 화면의 기능에는 테스트 손잡이와 헤드리스 테스트를 붙인다. 좌표 셈 · 잡기는 순수 계산으로 떼어 화면 없이 시험한다(`Views/TimelineLayout`). 단축키는 `MainWindow.Keys.cs`의 표에 더하고(F1의 창이 그 표를 보인다) `docs/USER-GUIDE.md`에 적는다.
