@@ -1,6 +1,7 @@
 # 런타임 세션에 넘기는 일 — K1 · K2 · K5 · N5
 
 2026-11-22 · 저장소: ked-presentation-runtime · 설계: ked-story-tools `docs/PLAN.md`
+상태: **K1 · K2 끝(2026-11-22)** — 런타임 `dev`에 있다(Unity 확인 · 종류 배정 확정). 한 것과 정한 것은 런타임 `docs/PLAN_command-spec.md`. 남은 것: K5 · N5.
 읽을 것: 그 계획서 §4.1 · §4.2 · §5 → 이 저장소의 `docs/PLAN_line-anchor.md`(§5 · §11 · §12) · `docs/PLAN_rig-layers.md`(§4).
 
 ## 0. 왜
