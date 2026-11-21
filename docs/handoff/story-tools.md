@@ -56,3 +56,17 @@ K4를 시작하는 세션이 알 것:
 - 앵커의 목록은 `LineEditor.Anchors` — 줄 읽기의 스텝에는 커맨드나 간격이 있는 앵커만 오른다.
 - 데모 대본에서 고칠 수 있는 줄은 `ln_k7inl2cm` 하나다 — 나머지 새 표기 줄에는 `#line:`이 없고(계획서 U4), 태그가 있는 줄은 옛 표기다.
 - 카드의 종류 표는 작업공간 `catalog/kinds.json`에, 카드의 출처는 커맨드 줄 끝의 주석(`// card:E04` — P5)에 있다. 줄 고치기는 그 주석을 지킨다.
+
+## 6. K4-1에서 한 것 (2026-11-22)
+
+읽는 화면 — 계획서 §4.5의 "K4-1에서 지은 것". K4의 차례와 U1 ~ U4는 소유자가 제안대로 정했다(계획서 §2.3).
+
+- 확인 — 형제 툴의 빌드 산출물에 있는 Avalonia · xunit의 DLL로 빌드해 `dotnet vstest`로 돌렸다: `St.Authoring.Tests` 85 · `St.App.Tests` 6. 그림 `k4-1-*.png`도 눈으로 보았다. **XAML 두 장(`App.axaml` · `MainWindow.axaml`)은 이 세션에서 컴파일하지 못한다** — XAML이 하는 일을 코드로 흉내 낸 임시 프로젝트로 확인했다. 소유자의 `dotnet build`가 마지막 확인이다.
+- Avalonia 12에서 알게 된 것 — `TextBox.Watermark`는 폐기되어 `PlaceholderText`다. `TextChanged`는 디스패처를 한 번 돈 뒤에 온다(테스트 손잡이는 직접 다시 채운다). `TextBlock.Foreground`에 null을 넣으면 테마의 글자색이 지워진다.
+
+K4-2(고치는 화면)를 시작하는 세션이 알 것:
+
+- 고친 것은 조작마다 바로 파일에 쓴다(U1). `ScriptLibrary`는 읽기만 한다 — 고친 뒤 그 파일을 다시 읽어 목록과 가운데를 채우는 길을 더해야 한다. 바깥에서 파일이 바뀐 것을 알아채는 길도 그때 정한다.
+- 가운데의 커맨드 줄은 `OutlineCommand.Address`를 든다 — 그대로 `SetValue` · `RemoveCommand` · `SetDelay`의 주소다. 칸의 갈래는 `OutlineArg.Kind`.
+- U4(런타임 데모 대본의 `#line:`)는 아직이다 — 화면 시험은 지어낸 대본으로 한다.
+

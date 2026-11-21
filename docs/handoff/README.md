@@ -8,7 +8,7 @@
 | [runtime.md](runtime.md) | ked-presentation-runtime | K1 명세 표 · K2 줄 읽기 · (뒤에) K5 도구 연결 · N5 옛 표기 걷기 | **K1 · K2 끝(2026-11-22)** — `dev`에 있다. K5 · N5는 뒤에 |
 | [workspace-n4.md](workspace-n4.md) | ked-vn-workspace | N4 + R6 — 포크 · 파이썬 도구 · 카드 · 다시 내기 | **끝났다(2026-11-22)** |
 | [character-rig.md](character-rig.md) | ked-motion-tool-characterRig | R7 — 코어 사본 · 리그 스키마 · 걷힌 노드 | **지금 시작할 수 있다** — 런타임 `dev` `b56a2ebc`(튜닝 덤프도 다시 냈다 — `6968f30c`) |
-| [story-tools.md](story-tools.md) | ked-story-tools(여기) | K3 줄 고치기 · CLI · K4 화면 | **K3 끝(2026-11-22)** — `dev`. K4는 차례의 제안(계획서 §2.3)을 확인받고 시작한다 |
+| [story-tools.md](story-tools.md) | ked-story-tools(여기) | K3 줄 고치기 · CLI · K4 화면 | **K3 · K4-1 끝(2026-11-22)** — `dev`. 다음은 K4-2(계획서 §2.3) |
 
 ## 차례
 
