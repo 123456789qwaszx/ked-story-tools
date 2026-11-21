@@ -34,6 +34,9 @@ public partial class MainWindow
     }
 
     private CardCatalog? _catalog;
+
+    // 연 대본의 명세 표 — 열지 않았으면 코어의 것.
+    private StageCommandSpecTable Specs => _session?.Specs ?? StageCommandSpecTable.Default;
     private CommandKind _addKind = CommandKind.Acting;
     private bool _addFromCards;
     private string? _addChoice;
@@ -178,10 +181,10 @@ public partial class MainWindow
             }
         };
 
-        Grid pickers = new() { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-        AddField(pickers, "종류", kinds);
-        AddField(pickers, "무엇을", source);
-        AddField(pickers, _addFromCards ? "카드" : "커맨드", choice);
+        FormGrid pickers = new();
+        pickers.Add("종류", kinds);
+        pickers.Add("무엇을", source);
+        pickers.Add(_addFromCards ? "카드" : "커맨드", choice);
         _inspector.Children.Add(pickers);
 
         if (_addFromCards && PickedCard() is { } card)
@@ -198,7 +201,7 @@ public partial class MainWindow
 
         foreach ((string anchor, string duration) in PendingGaps)
         {
-            _inspector.Children.Add(Hint($"간격 — {anchor}에 {TimeText.Format(DurationToken.TryParseSeconds(duration, out float seconds) ? seconds : 0f)}", Palette.Dim));
+            _inspector.Children.Add(FormGrid.Hint($"간격 — {anchor}에 {TimeText.Format(DurationToken.TryParseSeconds(duration, out float seconds) ? seconds : 0f)}", Palette.Dim));
         }
 
         if (Pending.Count > 0 || PendingGaps.Count > 0)
@@ -213,12 +216,12 @@ public partial class MainWindow
     {
         if (card.Intent.Length > 0)
         {
-            _inspector.Children.Add(Hint(card.Intent));
+            _inspector.Children.Add(FormGrid.Hint(card.Intent));
         }
 
         if (card.When.Length > 0)
         {
-            _inspector.Children.Add(Hint($"언제 — {card.When}", Palette.Faint));
+            _inspector.Children.Add(FormGrid.Hint($"언제 — {card.When}", Palette.Faint));
         }
 
         if (card.Parts.Count > 1)
@@ -237,8 +240,8 @@ public partial class MainWindow
                 }
             };
 
-            Grid grid = new() { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
-            AddField(grid, "묶음", parts);
+            FormGrid grid = new();
+            grid.Add("묶음", parts);
             _inspector.Children.Add(grid);
         }
 
@@ -246,7 +249,7 @@ public partial class MainWindow
 
         if (part.Example.Length > 0)
         {
-            _inspector.Children.Add(Hint($"본보기의 줄 — {part.Example}", Palette.Faint));
+            _inspector.Children.Add(FormGrid.Hint($"본보기의 줄 — {part.Example}", Palette.Faint));
         }
     }
 
@@ -264,7 +267,7 @@ public partial class MainWindow
             },
         };
 
-        Grid fields = new() { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        FormGrid fields = new();
 
         ComboBox anchor = new() { ItemsSource = anchors, SelectedItem = pending.Anchor, HorizontalAlignment = HorizontalAlignment.Stretch };
         anchor.SelectionChanged += (_, _) =>
@@ -274,11 +277,26 @@ public partial class MainWindow
                 pending.Anchor = picked;
             }
         };
-        AddField(fields, "앵커", anchor);
+        fields.Add("앵커", anchor);
 
         for (int i = 0; i < pending.Spec.Args.Count; i++)
         {
-            AddField(fields, pending.Spec.Args[i].Label, PendingEditor(pending, i, build), pending.Spec.Args[i].Note);
+            int index = i;
+            CommandArgSpec spec = pending.Spec.Args[i];
+
+            // 넣기 전이라 파일은 그대로다 — 적는 대로 채우던 것에 담긴다. 다시 지은 뒤에 오는 옛 칸의 글은 버린다.
+            Control editor = ArgField.Create(
+                spec, pending.Values[i],
+                new ArgFieldOptions(Live: true, Candidates: Candidates(spec), Fill: pending.Placeholders[i]),
+                value =>
+                {
+                    if (build == _inspectorBuild)
+                    {
+                        pending.Values[index] = value ?? string.Empty;
+                    }
+                });
+
+            fields.Add(spec.Label, editor, spec.Note, spec);
         }
 
         return new Border
@@ -290,83 +308,12 @@ public partial class MainWindow
         };
     }
 
-    private Control PendingEditor(PendingCommand pending, int index, int build)
-    {
-        CommandArgSpec spec = pending.Spec.Args[index];
-
-        if (spec.Flag && spec.Choices.Count > 0)
-        {
-            CheckBox box = new() { Content = spec.Choices[0], IsChecked = pending.Values[index] == spec.Choices[0] };
-            box.IsCheckedChanged += (_, _) => pending.Values[index] = box.IsChecked == true ? spec.Choices[0] : string.Empty;
-            return box;
-        }
-
-        if (spec.Choices.Count > 0)
-        {
-            const string unwritten = "(적지 않음)";
-            List<string> items = [.. spec.Choices];
-
-            if (spec.Optional)
-            {
-                items.Insert(0, unwritten);
-            }
-
-            ComboBox combo = new()
-            {
-                ItemsSource = items,
-                SelectedIndex = pending.Values[index].Length > 0 ? items.IndexOf(pending.Values[index]) : spec.Optional ? 0 : -1,
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-            };
-            combo.SelectionChanged += (_, _) => pending.Values[index] = combo.SelectedItem is string picked && picked != unwritten ? picked : string.Empty;
-            return combo;
-        }
-
-        string placeholder = pending.Placeholders[index] is { } name ? $"{name} — 채운다"
-            : spec.Default is { Length: > 0 } fallback ? $"{fallback} — 적지 않음"
-            : spec.Optional ? "적지 않음" : "꼭 적는다";
-
-        TextBox text = new() { Text = pending.Values[index], PlaceholderText = placeholder, FontFamily = Palette.Mono, FontSize = 13 };
-        // TextChanged는 디스패처를 한 번 돈 뒤에 온다 — 그 사이 칸을 다시 지었으면 옛 칸의 글은 버린다.
-        text.TextChanged += (_, _) =>
-        {
-            if (build == _inspectorBuild)
-            {
-                pending.Values[index] = (text.Text ?? string.Empty).Trim();
-            }
-        };
-
-        IReadOnlyList<string> candidates = Candidates(spec);
-
-        if (candidates.Count == 0)
-        {
-            return text;
-        }
-
-        // 후보를 누르면 그 값이 칸에 적힌다(넣기 전이라 파일은 그대로다).
-        return new StackPanel
-        {
-            Spacing = 3,
-            Children =
-            {
-                text,
-                CandidateChips(candidates, pending.Values[index], value =>
-                {
-                    if (build == _inspectorBuild)
-                    {
-                        pending.Values[index] = value;
-                        RefreshInspector();
-                    }
-                }),
-            },
-        };
-    }
-
     // ── 고르기 ──────────────────────────────────────────────────────────────
 
     private IReadOnlyList<(string Id, string Label)> AddChoices()
         => _addFromCards
             ? _catalog?.OfKind(_addKind).Select(c => (c.Id, $"{c.Id}  {c.Name}")).ToList() ?? []
-            : StageCommandSpecTable.Default.OfKind(_addKind).Where(s => !s.Immediate).Select(s => (s.Name, $"{s.Name}  —  {s.Summary}")).ToList();
+            : Specs.OfKind(_addKind).Where(s => !s.Immediate).Select(s => (s.Name, $"{s.Name}  —  {s.Summary}")).ToList();
 
     private Card? PickedCard() => _addFromCards ? _catalog?.Cards.FirstOrDefault(c => c.Id == _addChoice) : null;
 
@@ -434,7 +381,7 @@ public partial class MainWindow
 
         if (!_addFromCards)
         {
-            if (StageCommandSpecTable.Default.TryGet(_addChoice, out StageCommandSpec spec))
+            if (Specs.TryGet(_addChoice, out StageCommandSpec spec))
             {
                 PendingCommand pending = new(spec, pickedAnchor);
                 Array.Fill(pending.Values, string.Empty);
@@ -453,7 +400,7 @@ public partial class MainWindow
 
         foreach (CardCommand command in part.Commands)
         {
-            if (!StageCommandSpecTable.Default.TryGet(command.Name, out StageCommandSpec spec))
+            if (!Specs.TryGet(command.Name, out StageCommandSpec spec))
             {
                 continue;
             }

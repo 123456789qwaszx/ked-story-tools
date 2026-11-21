@@ -34,6 +34,9 @@ public sealed class ToolSettings
     public float TypewriterSpeedFor(string root)
         => TypewriterSpeeds.TryGetValue(root, out float speed) && speed > 0f ? speed : DefaultTypewriterSpeed;
 
+    /// <summary>창의 꼴 — 크기와 양쪽 칸의 폭. 한 번도 닫지 않았으면 null.</summary>
+    public WindowLayout? Window { get; set; }
+
     /// <summary>설정 파일을 읽지 못한 까닭. 읽었거나 파일이 없으면 null.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string? LoadProblem { get; private set; }
@@ -67,4 +70,18 @@ public sealed class ToolSettings
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         File.WriteAllText(path, JsonSerializer.Serialize(this, Options));
     }
+}
+
+/// <summary>창의 꼴 — 화면의 것이지만 설정 파일에 함께 남는다.</summary>
+public sealed class WindowLayout
+{
+    public double Width { get; set; }
+
+    public double Height { get; set; }
+
+    /// <summary>왼쪽(줄 목록)의 폭.</summary>
+    public double Left { get; set; }
+
+    /// <summary>오른쪽(칸)의 폭.</summary>
+    public double Right { get; set; }
 }

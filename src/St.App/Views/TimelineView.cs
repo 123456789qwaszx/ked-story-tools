@@ -22,6 +22,9 @@ internal sealed class TimelineView : Control
     // 이만큼도 움직이지 않고 놓으면 누른 것이다(끈 것이 아니다).
     private const double ClickSlop = 3;
 
+    // 아직 자리를 잡지 못했을 때의 폭.
+    private const double DefaultWidth = 800;
+
     private static readonly IBrush Back = Brush.Parse("#17181B");
     private static readonly IBrush Lane = Brush.Parse("#202226");
     private static readonly IBrush Rule = Brush.Parse("#44888888");
@@ -31,21 +34,22 @@ internal sealed class TimelineView : Control
 
     private LineTimeline? _timeline;
     private IReadOnlyList<CommandKind> _tracks = [];
-    private CommandAddress? _picked;
+    private IReadOnlySet<CommandAddress> _picked = new HashSet<CommandAddress>();
+    private KeyModifiers _pressedWith;
 
     private TimelineHit _drag = TimelineHit.None;
     private double _dragFrom;
     private double _dragTo;
     private bool _dragTogether;
 
-    /// <summary>막대를 눌렀다 — 그 커맨드를 고른다.</summary>
-    public event Action<CommandAddress>? BarPicked;
+    /// <summary>막대를 눌렀다 — 그 커맨드를 고른다(Ctrl · Shift면 여럿).</summary>
+    public event Action<CommandAddress, KeyModifiers>? BarPicked;
 
     /// <summary>끌어서 고쳤다 — 조작들과, 끈 막대의 주소(막대가 아니면 null).</summary>
     public event Action<IReadOnlyList<LineEdit>, CommandAddress?>? Edited;
 
-    /// <summary>보일 줄 · 트랙의 종류 · 고른 커맨드를 넣는다.</summary>
-    public void Show(LineTimeline? timeline, IReadOnlyList<CommandKind> tracks, CommandAddress? picked)
+    /// <summary>보일 줄 · 트랙의 종류 · 고른 커맨드들을 넣는다.</summary>
+    public void Show(LineTimeline? timeline, IReadOnlyList<CommandKind> tracks, IReadOnlySet<CommandAddress> picked)
     {
         _timeline = timeline;
         _tracks = tracks;
@@ -57,7 +61,7 @@ internal sealed class TimelineView : Control
 
     /// <summary>지금의 자리 셈. 보일 줄이 없으면 null.</summary>
     internal TimelineLayout? Layout
-        => _timeline is null ? null : new TimelineLayout(_timeline, _tracks, Bounds.Width > 0 ? Bounds.Width : 800);
+        => _timeline is null ? null : new TimelineLayout(_timeline, _tracks, Bounds.Width > 0 ? Bounds.Width : double.IsNaN(Width) ? DefaultWidth : Width);
 
     protected override Size MeasureOverride(Size availableSize)
     {
@@ -66,7 +70,8 @@ internal sealed class TimelineView : Control
             return default;
         }
 
-        double width = double.IsFinite(availableSize.Width) ? availableSize.Width : 800;
+        // 가로로 구르는 자리 안에서는 폭이 끝없다 — 넓힌 폭(Width)이 있으면 그것, 없으면 기본 폭.
+        double width = double.IsFinite(availableSize.Width) ? availableSize.Width : double.IsNaN(Width) ? DefaultWidth : Width;
         return new Size(width, new TimelineLayout(_timeline, _tracks, width).Height);
     }
 
@@ -85,6 +90,7 @@ internal sealed class TimelineView : Control
         _drag = layout.HitTest(point);
         _dragFrom = _dragTo = point.X;
         _dragTogether = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+        _pressedWith = e.KeyModifiers;
 
         if (_drag.Kind != TimelineHitKind.None)
         {
@@ -132,7 +138,7 @@ internal sealed class TimelineView : Control
         {
             if (bar is { } address)
             {
-                BarPicked?.Invoke(address);
+                BarPicked?.Invoke(address, _pressedWith);
             }
 
             InvalidateVisual();
@@ -306,7 +312,7 @@ internal sealed class TimelineView : Control
         }
 
         IBrush color = Palette.Of(bar.Kind);
-        bool picked = _picked == bar.Address;
+        bool picked = _picked.Contains(bar.Address);
         Pen? outline = picked ? new Pen(Brushes.White, 1.5) : null;
 
         if (bar.Duration is null)

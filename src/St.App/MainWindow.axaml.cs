@@ -13,7 +13,9 @@ namespace St.App;
 /// 셸 — 위에 대본 열기, 왼쪽에 챕터 · 장면 · 에피소드 고르기와 줄 찾기 · 종류 필터, 가운데에 고른 줄의 스텝 목록,
 /// 오른쪽에 고른 커맨드 · 스텝의 칸, 아래에 상태(docs/PLAN.md §4.5 · §4.7).
 /// 고치는 일은 모두 <see cref="EditSession"/>을 지난다 — 조작(<c>LineEdit</c>) 하나가 되돌리기 한 칸이고, 바로 파일에 쓴다(U1).
-/// 맡은 일별 partial: <c>Files</c>(열기 · 되돌리기) · <c>Library</c>(챕터 · 장면 · 줄 목록) · <c>Line</c>(스텝 목록) · <c>Edit</c>(칸 고치기).
+/// 맡은 일별 partial: <c>Files</c>(열기 · 되돌리기) · <c>Library</c>(챕터 · 장면 · 줄 목록) · <c>Line</c>(스텝 목록 · 고르기) ·
+/// <c>Edit</c>(칸 고치기 · 빼기 · 복사) · <c>Add</c>(더하기 · 카드) · <c>Timeline</c>(타임라인) · <c>Keys</c>(단축키).
+/// 칸의 모양은 <c>Views/ArgField</c> · <c>Views/FormGrid</c>가 맡는다 — 고치는 칸과 채우는 칸이 같은 것을 쓴다.
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -23,6 +25,11 @@ public partial class MainWindow : Window
     private readonly string _settingsPath;
     private readonly ToolSettings _settings;
     private readonly TextBlock _status = new() { FontSize = 11, Opacity = 0.8 };
+
+    private const double MinWindow = 400;
+    private const double MinSide = 160;
+
+    private readonly Grid _body = new() { ColumnDefinitions = new ColumnDefinitions("380,4,*,4,340") };
 
     private EditSession? _session;
 
@@ -50,7 +57,7 @@ public partial class MainWindow : Window
         DockPanel.SetDock(bottom, Dock.Bottom);
         shell.Children.Add(bottom);
 
-        Grid body = new() { ColumnDefinitions = new ColumnDefinitions("380,4,*,4,340") };
+        Grid body = _body;
         Control[] columns =
         [
             BuildLibraryPanel(),
@@ -79,11 +86,64 @@ public partial class MainWindow : Window
             ResetPickers();
         }
 
+        RestoreLayout();
+        Closing += (_, _) => SaveLayout();
+
         if (_settings.LoadProblem is { } problem)
         {
             _status.Text = problem;
         }
     }
+
+    // ── 창의 꼴 — 크기와 양쪽 칸의 폭을 이 컴퓨터에 기억해 둔다 ─────────────
+
+    private void RestoreLayout()
+    {
+        if (_settings.Window is not { } layout)
+        {
+            return;
+        }
+
+        if (layout.Width >= MinWindow && layout.Height >= MinWindow)
+        {
+            (Width, Height) = (layout.Width, layout.Height);
+        }
+
+        SetSideWidths(layout.Left, layout.Right);
+    }
+
+    /// <summary>창의 꼴을 설정에 남긴다 — 창을 닫을 때.</summary>
+    internal void SaveLayout()
+    {
+        Size size = ClientSize.Width > 0 ? ClientSize : new Size(Width, Height);
+
+        _settings.Window = new WindowLayout
+        {
+            Width = double.IsFinite(size.Width) ? size.Width : 0,
+            Height = double.IsFinite(size.Height) ? size.Height : 0,
+            // 양쪽 칸은 픽셀로 선 칸이다 — 가름대를 끌면 이 값이 바뀐다.
+            Left = _body.ColumnDefinitions[0].Width.Value,
+            Right = _body.ColumnDefinitions[4].Width.Value,
+        };
+        _settings.Save(_settingsPath);
+    }
+
+    /// <summary>왼쪽(줄 목록)과 오른쪽(칸)의 폭을 정한다 — 너무 좁은 값은 받지 않는다.</summary>
+    internal void SetSideWidths(double left, double right)
+    {
+        if (left >= MinSide)
+        {
+            _body.ColumnDefinitions[0].Width = new GridLength(left);
+        }
+
+        if (right >= MinSide)
+        {
+            _body.ColumnDefinitions[4].Width = new GridLength(right);
+        }
+    }
+
+    /// <summary>왼쪽과 오른쪽 칸의 폭.</summary>
+    internal (double Left, double Right) SideWidths => (_body.ColumnDefinitions[0].Width.Value, _body.ColumnDefinitions[4].Width.Value);
 
     /// <summary>상태 줄의 글.</summary>
     internal string StatusLine => _status.Text ?? string.Empty;

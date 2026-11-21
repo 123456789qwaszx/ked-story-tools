@@ -160,7 +160,11 @@ public class EditingTests
             Assert.True(window.EditField("길이", "빠르게"));
 
             Assert.Equal(Script, File.ReadAllText(path));
-            Assert.Contains("시간 토큰", window.EditMessage);
+            Assert.Contains("시간이다", window.EditMessage);
+
+            // 까닭은 화면의 말로 온다 — yarn의 표기(<<…>>)와 칸의 열쇠는 보이지 않는다.
+            Assert.DoesNotContain("<<", window.EditMessage);
+            Assert.DoesNotContain("(duration)", window.EditMessage);
             RenderShots.Save(window, "k4-2-refused");
 
             // 다음 고침이 받아들여지면 까닭은 사라진다.

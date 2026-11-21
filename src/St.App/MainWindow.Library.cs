@@ -26,8 +26,14 @@ public partial class MainWindow
 
     private bool _refreshing;
 
+    // 접어 둔 에피소드(Id) — 머리만 보인다.
+    private readonly HashSet<string> _collapsed = new(StringComparer.Ordinal);
+
+    // 마지막으로 고른 줄 — 에피소드의 머리를 눌러 접고 펼 때 고른 줄을 돌려놓는다.
+    private LibraryLine? _currentLine;
+
     /// <summary>목록의 에피소드 머리 — 그 아래에 그 에피소드의 줄이 선다.</summary>
-    private sealed record EpisodeHeader(StoryEpisode Episode, int Total);
+    private sealed record EpisodeHeader(StoryEpisode Episode, int Total, bool Collapsed);
 
     /// <summary>종류 필터에서 켜진 종류. 처음에는 넷 모두다.</summary>
     internal IReadOnlySet<CommandKind> Kinds
@@ -64,7 +70,23 @@ public partial class MainWindow
         _episodes.SelectionChanged += (_, _) => RefreshLibrary();
         _search.TextChanged += (_, _) => RefreshLibrary();
         _onlyWithKind.IsCheckedChanged += (_, _) => RefreshLibrary();
-        _lines.SelectionChanged += (_, _) => ShowSelectedLine();
+        _lines.SelectionChanged += (_, _) =>
+        {
+            if (_refreshing)
+            {
+                return;
+            }
+
+            // 에피소드의 머리는 고르는 줄이 아니다 — 누르면 접고 편다.
+            if (_lines.SelectedItem is EpisodeHeader header)
+            {
+                ToggleEpisode(header.Episode.Id);
+                return;
+            }
+
+            _currentLine = _lines.SelectedItem as LibraryLine;
+            ShowSelectedLine();
+        };
 
         // 목록을 갈아 끼우는 사이에 틀이 빈 항목으로 불릴 수 있다.
         _lines.ItemTemplate = new FuncDataTemplate<object>(
@@ -75,9 +97,6 @@ public partial class MainWindow
                 _ => new Control(),
             },
             supportsRecycling: false);
-
-        // 에피소드의 머리는 고르는 줄이 아니다.
-        _lines.ContainerPrepared += (_, e) => e.Container.IsEnabled = _lines.Items[e.Index] is not EpisodeHeader;
 
         StackPanel kinds = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
 
@@ -231,7 +250,7 @@ public partial class MainWindow
         string? line = (_lines.SelectedItem as LibraryLine)?.Id;
 
         // 목록을 갈아 끼우는 동안 고른 줄이 잠깐 비고, 그때 가운데가 고른 커맨드를 놓는다 — 쥐고 있다가 돌려준다.
-        (CommandAddress? command, string? anchor, string? shown) = (PickedCommand, PickedAnchor, _shownLine);
+        (List<CommandAddress> commands, string? anchor, string? shown) = (_picked.ToList(), PickedAnchor, _shownLine);
 
         _refreshing = true;
 
@@ -252,7 +271,9 @@ public partial class MainWindow
 
         if (line is not null)
         {
-            (PickedCommand, PickedAnchor, _shownLine) = (command, anchor, shown);
+            _picked.Clear();
+            _picked.AddRange(commands);
+            (PickedAnchor, _shownLine) = (anchor, shown);
             SelectLine(line);
         }
     }
@@ -269,7 +290,7 @@ public partial class MainWindow
 
         try
         {
-            LibraryLine? selected = _lines.SelectedItem as LibraryLine;
+            LibraryLine? selected = _lines.SelectedItem as LibraryLine ?? _currentLine;
             StoryScene? scene = Scene;
 
             ListedEpisodes = scene?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null, Episode?.Id) ?? [];
@@ -278,12 +299,17 @@ public partial class MainWindow
 
             foreach (StoryEpisode episode in ListedEpisodes)
             {
-                items.Add(new EpisodeHeader(episode, scene!.Episodes.First(e => e.Id == episode.Id).Lines.Count));
-                items.AddRange(episode.Lines);
+                bool collapsed = _collapsed.Contains(episode.Id);
+                items.Add(new EpisodeHeader(episode, scene!.Episodes.First(e => e.Id == episode.Id).Lines.Count, collapsed));
+
+                if (!collapsed)
+                {
+                    items.AddRange(episode.Lines);
+                }
             }
 
             _lines.ItemsSource = items;
-            _lines.SelectedItem = selected is not null && items.Contains(selected) ? selected : null;
+            _lines.SelectedItem = _currentLine = selected is not null && items.Contains(selected) ? selected : null;
 
             int shown = ListedEpisodes.Sum(e => e.Lines.Count);
             _listCount.Text = scene is null ? string.Empty : $"{shown}줄 / 이 장면 {scene.LineCount}줄 · 에피소드 {ListedEpisodes.Count}/{scene.Episodes.Count}";
@@ -321,6 +347,7 @@ public partial class MainWindow
                 Spacing = 8,
                 Children =
                 {
+                    new TextBlock { Text = header.Collapsed ? "▸" : "▾", FontSize = 11, Foreground = Palette.Faint, VerticalAlignment = VerticalAlignment.Center },
                     new TextBlock { Text = episode.Title, FontWeight = FontWeight.SemiBold, FontSize = 12, Foreground = Palette.Dim },
                     new TextBlock { Text = episode.NodeName, FontFamily = Palette.Mono, FontSize = 11, Foreground = Palette.Faint, VerticalAlignment = VerticalAlignment.Center },
                     new TextBlock { Text = count, FontSize = 11, Foreground = episode.Missing ? Palette.Warning : Palette.Faint, VerticalAlignment = VerticalAlignment.Center },
@@ -428,8 +455,48 @@ public partial class MainWindow
     /// <summary>LineId로 목록의 줄을 고른다. 목록에 없으면 false.</summary>
     internal bool SelectLine(string lineId)
     {
-        LibraryLine? line = ListedLines.FirstOrDefault(l => l.Id == lineId);
+        LibraryLine? line = VisibleLines.FirstOrDefault(l => l.Id == lineId);
         _lines.SelectedItem = line;
         return line is not null;
+    }
+
+    /// <summary>목록에 실제로 선 줄 — 접은 에피소드의 줄은 빠진다.</summary>
+    internal IReadOnlyList<LibraryLine> VisibleLines => (_lines.ItemsSource as IEnumerable<object>)?.OfType<LibraryLine>().ToList() ?? [];
+
+    /// <summary>에피소드를 접거나 편다 — 접으면 머리만 남는다. 고른 줄이 그 안에 있었으면 놓는다.</summary>
+    internal void ToggleEpisode(string episodeId)
+    {
+        if (!_collapsed.Remove(episodeId))
+        {
+            _collapsed.Add(episodeId);
+        }
+
+        RefreshLibrary();
+    }
+
+    /// <summary>접어 둔 에피소드인가.</summary>
+    internal bool IsCollapsed(string episodeId) => _collapsed.Contains(episodeId);
+
+    /// <summary>
+    /// 목록에서 고른 줄의 앞(-1)이나 뒤(+1) 줄로 옮긴다. <paramref name="withKind"/>이면 켜 둔 종류의 커맨드가 있는 줄까지 건너뛴다.
+    /// 더 갈 데가 없으면 false.
+    /// </summary>
+    internal bool MoveLine(int direction, bool withKind = false)
+    {
+        IReadOnlyList<LibraryLine> lines = VisibleLines;
+        IReadOnlySet<CommandKind> kinds = Kinds;
+        int index = _lines.SelectedItem is LibraryLine now ? lines.ToList().IndexOf(now) : direction > 0 ? -1 : lines.Count;
+
+        for (int i = index + direction; i >= 0 && i < lines.Count; i += direction)
+        {
+            if (!withKind || kinds.Any(k => lines[i].Count(k) > 0))
+            {
+                _lines.SelectedItem = lines[i];
+                _lines.ScrollIntoView(lines[i]);
+                return true;
+            }
+        }
+
+        return false;
     }
 }

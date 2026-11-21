@@ -17,7 +17,18 @@ namespace St.App;
 /// </summary>
 public partial class MainWindow
 {
+    private const double ZoomStep = 1.25;
+    private const double MaxZoom = 12;
+
     private readonly TimelineView _timeline = new();
+    private readonly ScrollViewer _timelineScroll = new()
+    {
+        HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto,
+        VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+    };
+
+    /// <summary>타임라인을 가로로 넓힌 배수 — 1이면 가운데의 폭에 꼭 맞는다.</summary>
+    internal double TimelineZoom { get; private set; } = 1;
     private readonly Dictionary<string, ClipLengths> _clips = new(StringComparer.Ordinal);
 
     /// <summary>가운데에 펴 보인 줄의 타임라인. 고른 줄이 없으면 null.</summary>
@@ -33,6 +44,18 @@ public partial class MainWindow
         {
             _timeline.Tag = this;
             _timeline.BarPicked += PickCommand;
+            _timelineScroll.Content = _timeline;
+            _timelineScroll.SizeChanged += (_, _) => FitTimeline();
+
+            // Ctrl을 누르고 굴리면 넓히고 좁힌다 — 구르는 자리가 먼저 받기 전에 잡는다.
+            _timelineScroll.AddHandler(PointerWheelChangedEvent, (_, e) =>
+            {
+                if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+                {
+                    SetTimelineZoom(TimelineZoom * Math.Pow(ZoomStep, e.Delta.Y));
+                    e.Handled = true;
+                }
+            }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
             _timeline.Edited += (edits, bar) => ApplyEdits(edits, keepStep: false, pick: bar ?? PickedCommand);
         }
 
@@ -46,7 +69,8 @@ public partial class MainWindow
         // 트랙은 켜진 종류만 — 종류 필터가 트랙을 접고 편다.
         CommandKind[] tracks = DirectorKinds.Where(Kinds.Contains).ToArray();
         ShownTimeline = LineTimeline.Build(line.Read, Kinds, new TypewriterPacing { UnitsPerSecond = TypewriterSpeed }, clips);
-        _timeline.Show(ShownTimeline, tracks, PickedCommand);
+        _timeline.Show(ShownTimeline, tracks, _picked.ToHashSet());
+        FitTimeline();
 
         TextBox speed = new()
         {
@@ -87,7 +111,7 @@ public partial class MainWindow
 
         TextBlock help = new()
         {
-            Text = "막대를 옆으로 끌면 지연(그 막대만 — Shift를 누르면 뒤의 커맨드도 함께) · 오른쪽 끝을 끌면 길이 · 앵커의 세로줄을 끌면 앞 앵커의 간격 · 노란 줄을 끌면 넘김 전의 머묾",
+            Text = "막대를 옆으로 끌면 지연(그 막대만 — Shift를 누르면 뒤의 커맨드도 함께) · 오른쪽 끝을 끌면 길이 · 앵커의 세로줄을 끌면 앞 앵커의 간격 · 노란 줄을 끌면 넘김 전의 머묾 · Ctrl을 누르고 굴리면 넓힌다",
             FontSize = 11,
             Foreground = Palette.Faint,
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
@@ -97,9 +121,29 @@ public partial class MainWindow
         _timeline.IsHitTestVisible = ShownOutline?.Editable == true;
 
         // 뷰는 하나라 앞서 선 자리에서 떼어 낸 뒤 새로 세운다.
-        (_timeline.Parent as Panel)?.Children.Remove(_timeline);
+        (_timelineScroll.Parent as Panel)?.Children.Remove(_timelineScroll);
 
-        return new StackPanel { Spacing = 4, Children = { caption, _timeline, help } };
+        return new StackPanel { Spacing = 4, Children = { caption, _timelineScroll, help } };
+    }
+
+    /// <summary>타임라인을 가로로 넓힌다(1 = 가운데의 폭에 꼭 맞게). 넓히면 가로로 굴려 본다.</summary>
+    internal void SetTimelineZoom(double zoom)
+    {
+        double clamped = Math.Clamp(zoom, 1, MaxZoom);
+
+        if (Math.Abs(clamped - TimelineZoom) > 0.001)
+        {
+            TimelineZoom = clamped;
+            FitTimeline();
+        }
+    }
+
+    private void FitTimeline()
+    {
+        double viewport = _timelineScroll.Bounds.Width;
+
+        // 자리를 잡기 전에는(폭 0) 뷰의 기본 폭에 맡긴다.
+        _timeline.Width = viewport > 0 ? Math.Floor(viewport * TimelineZoom) : double.NaN;
     }
 
     /// <summary>타자기의 속도를 바꾸고 이 대본에 기억해 둔다 — 글에 걸린 앵커의 어림이 따라 바뀐다.</summary>
