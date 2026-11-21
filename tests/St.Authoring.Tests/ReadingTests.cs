@@ -9,76 +9,159 @@ public class ReadingTests
     private static readonly IReadOnlySet<CommandKind> Director =
         CommandKinds.All.Where(CommandKinds.IsDirectorKind).ToHashSet();
 
-    private static ScriptLibrary Library()
+    /// <summary>
+    /// ked-story-director가 내보내는 꼴의 폴더 — 진행 파일 하나(챕터), 장면마다 yarn 파일 하나, 에피소드마다 노드 하나.
+    /// 진행 파일에 없는 대본(loose.yarn)이 하나 곁들여 있다. 글은 지어낸 것이다.
+    /// </summary>
+    private static string StoryFolder()
     {
         string dir = Directory.CreateTempSubdirectory("st-lib-").FullName;
-        File.WriteAllText(Path.Combine(dir, "a.yarn"), Scripts.Sample);
-        File.WriteAllText(Path.Combine(dir, "b.yarn"), "title: U\n---\n<<at start shot_zoom 1.2>>\n마: 다른 파일의 줄 #line:u1\n===\n");
-        return ScriptLibrary.Open(dir);
+        Directory.CreateDirectory(Path.Combine(dir, "yarn"));
+
+        File.WriteAllText(Path.Combine(dir, "ch01.progression.json"), """
+            {
+              "ChapterId": "ch01", "DisplayName": "1편 · 시험", "StartEpisodeId": "ch01_market_01", "Stats": [],
+              "Nodes": [
+                { "EpisodeId": "ch01_market_01", "Title": "첫 에피소드", "DialogueEntryId": "ch01_market_01", "SceneId": "market", "NextOptions": [] },
+                { "EpisodeId": "ch01_welcome_01", "Title": "둘째 장면", "DialogueEntryId": "ch01_welcome_01", "SceneId": "welcome" },
+                { "EpisodeId": "ch01_market_01a", "Title": "갈래", "DialogueEntryId": "ch01_market_01a", "SceneId": "market" },
+                { "EpisodeId": "ch01_lost_01", "Title": "없는 노드", "DialogueEntryId": "ch01_lost_01", "SceneId": "welcome" }
+              ]
+            }
+            """);
+
+        File.WriteAllText(Path.Combine(dir, "yarn", "ch01_market.yarn"),
+            "// 장면: 시장 (market)\n// 장 보러 나온 길\n\n// 에피소드: 첫 에피소드\ntitle: ch01_market_01\n---\n" +
+            "<<at start face s1 3>>\n가: 하나 #line:m1\n나: 둘 #line:m2\n===\n\n" +
+            "// 에피소드: 갈래\ntitle: ch01_market_01a\n---\n<<at start shot_zoom 1.2>>\n가: 갈래 하나 #line:m3\n===\n");
+
+        File.WriteAllText(Path.Combine(dir, "yarn", "ch01_welcome.yarn"),
+            "// 장면: 환영회 (welcome)\n\ntitle: ch01_welcome_01\n---\n다: 셋 #line:w1\n===\n");
+
+        File.WriteAllText(Path.Combine(dir, "loose.yarn"), Scripts.Sample);
+        return dir;
     }
 
     private static LineOutline Outline(string lineId, IReadOnlySet<CommandKind> kinds)
         => LineOutline.Build(Scripts.Sample, Scripts.Read(Scripts.Sample, lineId), kinds);
 
-    // ── 줄 찾기 ─────────────────────────────────────────────────────────────
+    // ── 챕터 · 장면 · 에피소드 ──────────────────────────────────────────────
 
     [Fact]
-    public void 폴더의_줄을_파일_순으로_모은다()
+    public void 진행_파일이_챕터이고_SceneId가_장면이고_노드가_에피소드다()
     {
-        ScriptLibrary library = Library();
+        ScriptLibrary library = ScriptLibrary.Open(StoryFolder());
+        StoryChapter chapter = library.Chapters[0];
 
-        Assert.Equal(2, library.Files.Count);
-        Assert.Equal(new[] { "t1", "t2", "t3", "t4", null, "u1" }, library.Lines.Select(l => l.Id));
+        Assert.Equal("ch01", chapter.Id);
+        Assert.Equal("1편 · 시험", chapter.Name);
+
+        // 장면은 에피소드가 처음 나오는 차례로, 이름은 파일 머리의 주석에서.
+        Assert.Equal(new[] { "market", "welcome" }, chapter.Scenes.Select(s => s.Id));
+        Assert.Equal(new[] { "시장", "환영회" }, chapter.Scenes.Select(s => s.Name));
+
+        // 장면 하나에 든 에피소드가 한 번에 온다 — 진행 파일의 차례로.
+        StoryScene market = chapter.Scenes[0];
+        Assert.Equal(new[] { "첫 에피소드", "갈래" }, market.Episodes.Select(e => e.Title));
+        Assert.Equal(new[] { "m1", "m2" }, market.Episodes[0].Lines.Select(l => l.Id));
+        Assert.Equal(new[] { "m3" }, market.Episodes[1].Lines.Select(l => l.Id));
+        Assert.Equal(3, market.LineCount);
+    }
+
+    [Fact]
+    public void 대본에_없는_에피소드는_빈_채로_남고_표시된다()
+    {
+        StoryScene welcome = ScriptLibrary.Open(StoryFolder()).Chapters[0].Scenes[1];
+
+        Assert.Equal(new[] { false, true }, welcome.Episodes.Select(e => e.Missing));
+        Assert.Empty(welcome.Episodes[1].Lines);
+    }
+
+    [Fact]
+    public void 진행_파일에_없는_대본은_맨_뒤의_챕터에_파일마다_장면으로_모인다()
+    {
+        ScriptLibrary library = ScriptLibrary.Open(StoryFolder());
+        StoryChapter loose = library.Chapters[1];
+
+        Assert.Equal(2, library.Chapters.Count);
+        Assert.Equal(ScriptLibrary.LooseChapterId, loose.Id);
+        Assert.Equal(new[] { "loose" }, loose.Scenes.Select(s => s.Name));
+        Assert.Equal(new[] { "T" }, loose.Scenes[0].Episodes.Select(e => e.NodeName));
+        Assert.Equal(new[] { "t1", "t2", "t3", "t4", null }, loose.Scenes[0].Episodes[0].Lines.Select(l => l.Id));
+        Assert.Equal(9, library.LineCount);
         Assert.Empty(library.Problems);
     }
 
     [Fact]
-    public void 대사_글과_화자와_LineId로_찾는다()
+    public void 진행_파일이_없는_폴더와_파일_하나는_챕터_하나로_열린다()
     {
-        ScriptLibrary library = Library();
+        string dir = Directory.CreateTempSubdirectory("st-lib-").FullName;
+        string path = Path.Combine(dir, "a.yarn");
+        File.WriteAllText(path, Scripts.Sample);
 
-        Assert.Equal(new[] { "t3" }, library.Search("들여쓴").Select(l => l.Id));
-        Assert.Equal(new[] { "t1", "t2", "t3" }, library.Search("나").Select(l => l.Id));
-        Assert.Equal(new[] { "u1" }, library.Search("U1").Select(l => l.Id));
-        Assert.Equal(new[] { "t2" }, library.Search("나 옛").Select(l => l.Id));
-        Assert.Equal(6, library.Search("  ").Count);
-        Assert.Empty(library.Search("없는말"));
+        foreach (string open in new[] { dir, path })
+        {
+            ScriptLibrary library = ScriptLibrary.Open(open);
+
+            Assert.Single(library.Chapters);
+            Assert.Equal("대본", library.Chapters[0].Name);
+            Assert.Equal(5, library.Chapters[0].Scenes[0].LineCount);
+        }
     }
 
     [Fact]
-    public void 종류가_있는_줄만_남긴다()
+    public void 장면_안에서_대사_글과_화자와_LineId로_찾는다()
     {
-        ScriptLibrary library = Library();
+        StoryScene market = ScriptLibrary.Open(StoryFolder()).Chapters[0].Scenes[0];
 
-        Assert.Equal(new[] { "u1" }, library.Search(null, new HashSet<CommandKind> { CommandKind.Camera }).Select(l => l.Id));
-        Assert.Equal(new[] { "t1", "t2" }, library.Search(null, new HashSet<CommandKind> { CommandKind.Placement }).Select(l => l.Id));
-        Assert.Equal(new[] { "t1", "t3" }, library.Search(null, new HashSet<CommandKind> { CommandKind.Acting }).Select(l => l.Id));
+        Assert.Equal(new[] { "m1", "m3" }, Ids(market.Search("하나")));
+        Assert.Equal(new[] { "m3" }, Ids(market.Search("가 갈래")));
+        Assert.Equal(new[] { "m2" }, Ids(market.Search("M2")));
+        Assert.Empty(market.Search("없는말"));
+
+        // 거르는 것이 없으면 에피소드가 모두 남고, 있으면 줄이 남은 에피소드만 남는다.
+        Assert.Equal(2, market.Search("  ").Count);
+        Assert.Equal(new[] { "갈래" }, market.Search("갈래").Select(e => e.Title));
+    }
+
+    [Fact]
+    public void 종류가_있는_줄만_남기고_에피소드_하나만_볼_수_있다()
+    {
+        StoryScene market = ScriptLibrary.Open(StoryFolder()).Chapters[0].Scenes[0];
+
+        Assert.Equal(new[] { "m3" }, Ids(market.Search(null, new HashSet<CommandKind> { CommandKind.Camera })));
+        Assert.Equal(new[] { "m1" }, Ids(market.Search(null, new HashSet<CommandKind> { CommandKind.Acting })));
+        Assert.Equal(new[] { "m1", "m2" }, Ids(market.Search(null, null, "ch01_market_01")));
+        Assert.Empty(market.Search("갈래", null, "ch01_market_01"));
     }
 
     [Fact]
     public void 줄은_종류별_수와_고칠_수_있는가를_안다()
     {
-        LibraryLine line = Library().Lines[0];
+        IReadOnlyList<LibraryLine> lines = ScriptLibrary.Open(StoryFolder()).Chapters[1].Scenes[0].Episodes[0].Lines;
 
-        Assert.Equal(1, line.Count(CommandKind.Placement));
-        Assert.Equal(4, line.Count(CommandKind.Acting));
-        Assert.Equal(0, line.Count(CommandKind.Camera));
-        Assert.True(line.Editable);
-        Assert.False(Library().Lines[1].Editable);
+        Assert.Equal(1, lines[0].Count(CommandKind.Placement));
+        Assert.Equal(4, lines[0].Count(CommandKind.Acting));
+        Assert.Equal(0, lines[0].Count(CommandKind.Camera));
+        Assert.True(lines[0].Editable);
+        Assert.False(lines[1].Editable);
     }
 
     [Fact]
-    public void 읽지_못한_파일은_건너뛰고_적는다()
+    public void 읽지_못한_파일과_깨진_진행_파일은_건너뛰고_적는다()
     {
-        string dir = Directory.CreateTempSubdirectory("st-lib-").FullName;
-        File.WriteAllText(Path.Combine(dir, "a.yarn"), Scripts.Sample);
+        string dir = StoryFolder();
         File.WriteAllBytes(Path.Combine(dir, "b.yarn"), [0x74, 0xFF, 0xFE]);
+        File.WriteAllText(Path.Combine(dir, "ch02.progression.json"), "{ 깨진");
 
         ScriptLibrary library = ScriptLibrary.Open(dir);
 
-        Assert.Single(library.Files);
-        Assert.Single(library.Problems);
+        Assert.Equal(3, library.Files.Count);
+        Assert.Equal(2, library.Chapters.Count);
+        Assert.Equal(2, library.Problems.Count);
     }
+
+    private static string?[] Ids(IReadOnlyList<StoryEpisode> episodes) => episodes.SelectMany(e => e.Lines).Select(l => l.Id).ToArray();
 
     // ── 스텝 목록 ───────────────────────────────────────────────────────────
 

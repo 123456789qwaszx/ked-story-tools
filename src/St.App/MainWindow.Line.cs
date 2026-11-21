@@ -32,7 +32,7 @@ public partial class MainWindow
         {
             _lineHost.Children.Add(new TextBlock
             {
-                Text = _library is null ? "대본 폴더를 열면 대사 줄이 왼쪽에 선다." : "왼쪽에서 줄을 고른다.",
+                Text = _library is null ? "대본 폴더를 열면 챕터와 장면이 왼쪽에 선다." : "왼쪽에서 줄을 고른다.",
                 Foreground = Palette.Dim,
                 Margin = new Thickness(0, 40, 0, 0),
                 HorizontalAlignment = HorizontalAlignment.Center,

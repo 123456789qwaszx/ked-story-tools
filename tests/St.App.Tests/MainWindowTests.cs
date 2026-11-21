@@ -8,18 +8,36 @@ namespace St.App.Tests;
 public class MainWindowTests
 {
     // 지어낸 대본 — 대사 원문이 든 대본은 이 저장소에 넣지 않는다.
-    private const string Script =
-        "title: T\n---\n" +
+    // ked-story-director가 내보내는 꼴이다: 진행 파일 하나(챕터), 장면마다 yarn 파일 하나, 에피소드마다 노드 하나.
+    private const string Stage =
+        "// 장면: 무대 (stage)\n\n// 에피소드: 막이 오른다\ntitle: ch01_stage_01\n---\n" +
         "<<at in fade_out s1 15fr>>\n<<at in pause 15fr>>\n<<at in face s2 05>>\n<<gap in 1s>>\n" +
         "<<at start shot_zoom 1.2 0.4s>>\n<<at a face_swap s2 03>>\n<<at a bgm theme>>\n<<at end emoji s2 star>>\n" +
         "가: [beat=in/]하나 [beat=a/]둘 [beat=b/]셋 #line:t1\n\n" +
-        "<<fade_in s1 10fr>>\n나: 옛 표기 #line:t2\n\n" +
-        "다: 커맨드가 없는 줄 #line:t3\n===\n";
+        "<<fade_in s1 10fr>>\n나: 옛 표기 #line:t2\n===\n\n" +
+        "// 에피소드: 갈래\ntitle: ch01_stage_01a\n---\n다: 커맨드가 없는 줄 #line:t3\n===\n";
+
+    private const string Lobby =
+        "// 장면: 로비 (lobby)\n\ntitle: ch01_lobby_01\n---\n<<at start face s1 3>>\n라: 다른 장면의 줄 #line:u1\n===\n";
+
+    private const string Progression = """
+        {
+          "ChapterId": "ch01", "DisplayName": "1편 · 시험",
+          "Nodes": [
+            { "EpisodeId": "ch01_stage_01", "Title": "막이 오른다", "DialogueEntryId": "ch01_stage_01", "SceneId": "stage" },
+            { "EpisodeId": "ch01_stage_01a", "Title": "갈래", "DialogueEntryId": "ch01_stage_01a", "SceneId": "stage" },
+            { "EpisodeId": "ch01_lobby_01", "Title": "로비에서", "DialogueEntryId": "ch01_lobby_01", "SceneId": "lobby" }
+          ]
+        }
+        """;
 
     private static string Folder()
     {
         string dir = Directory.CreateTempSubdirectory("st-app-").FullName;
-        File.WriteAllText(Path.Combine(dir, "a.yarn"), Script);
+        Directory.CreateDirectory(Path.Combine(dir, "yarn"));
+        File.WriteAllText(Path.Combine(dir, "ch01.progression.json"), Progression);
+        File.WriteAllText(Path.Combine(dir, "yarn", "ch01_stage.yarn"), Stage);
+        File.WriteAllText(Path.Combine(dir, "yarn", "ch01_lobby.yarn"), Lobby);
         return dir;
     }
 
@@ -50,7 +68,7 @@ public class MainWindowTests
     }
 
     [Fact]
-    public void 폴더를_열면_줄이_서고_다음에_켜면_다시_열린다()
+    public void 폴더를_열면_첫_챕터의_첫_장면이_서고_다음에_켜면_다시_열린다()
     {
         HeadlessUi.Run(() =>
         {
@@ -61,6 +79,9 @@ public class MainWindowTests
             window.Show();
             window.OpenPath(folder);
 
+            Assert.Equal("ch01", window.Chapter!.Id);
+            Assert.Equal("무대", window.Scene!.Name);
+            Assert.Equal(new[] { "막이 오른다", "갈래" }, window.ListedEpisodes.Select(e => e.Title));
             Assert.Equal(new[] { "t1", "t2", "t3" }, window.ListedLines.Select(l => l.Id));
             Assert.Equal(folder, ToolSettings.Load(settings).LastPath);
             window.Close();
@@ -69,6 +90,26 @@ public class MainWindowTests
             again.Show();
             Assert.Equal(3, again.ListedLines.Count);
             again.Close();
+        });
+    }
+
+    [Fact]
+    public void 장면을_바꾸면_그_장면의_에피소드가_서고_에피소드_하나만_볼_수_있다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            MainWindow window = Open(Folder());
+
+            Assert.True(window.SelectEpisode("ch01_stage_01a"));
+            Assert.Equal(new[] { "t3" }, window.ListedLines.Select(l => l.Id));
+            RenderShots.Save(window, "k4-1-episode");
+
+            Assert.True(window.SelectScene("lobby"));
+            Assert.Null(window.Episode);
+            Assert.Equal(new[] { "u1" }, window.ListedLines.Select(l => l.Id));
+
+            Assert.False(window.SelectScene("없는장면"));
+            window.Close();
         });
     }
 

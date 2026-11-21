@@ -45,6 +45,6 @@ public partial class MainWindow
         _pathText.Text = _library.Root;
         _settings.LastPath = _library.Root;
         _settings.Save(_settingsPath);
-        RefreshLibrary();
+        ResetPickers();
     }
 }

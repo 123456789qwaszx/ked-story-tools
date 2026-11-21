@@ -14,7 +14,10 @@ public partial class MainWindow
 {
     private const int ExcerptLength = 34;
 
-    private readonly TextBox _search = new() { PlaceholderText = "줄 찾기 — 대사 글 · 화자 · LineId" };
+    private readonly ComboBox _chapters = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly ComboBox _scenes = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly ComboBox _episodes = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly TextBox _search = new() { PlaceholderText = "이 장면에서 줄 찾기 — 대사 글 · 화자 · LineId" };
     private readonly Dictionary<CommandKind, ToggleButton> _kindButtons = [];
     private readonly CheckBox _onlyWithKind = new() { Content = "고른 종류가 있는 줄만", FontSize = 12 };
     private readonly ListBox _lines = new();
@@ -22,21 +25,58 @@ public partial class MainWindow
 
     private bool _refreshing;
 
+    /// <summary>목록의 에피소드 머리 — 그 아래에 그 에피소드의 줄이 선다.</summary>
+    private sealed record EpisodeHeader(StoryEpisode Episode, int Total);
+
     /// <summary>종류 필터에서 켜진 종류. 처음에는 넷 모두다.</summary>
     internal IReadOnlySet<CommandKind> Kinds
         => _kindButtons.Where(b => b.Value.IsChecked == true).Select(b => b.Key).ToHashSet();
 
-    /// <summary>목록에 보이는 줄 — 찾기와 필터를 지난 것.</summary>
-    internal IReadOnlyList<LibraryLine> ListedLines => (IReadOnlyList<LibraryLine>?)_lines.ItemsSource ?? [];
+    /// <summary>고른 챕터. 대본을 열지 않았으면 null.</summary>
+    internal StoryChapter? Chapter
+        => _library is not null && _chapters.SelectedIndex >= 0 && _chapters.SelectedIndex < _library.Chapters.Count
+            ? _library.Chapters[_chapters.SelectedIndex]
+            : null;
+
+    /// <summary>고른 장면 — 그 장면의 에피소드가 한 번에 목록에 선다.</summary>
+    internal StoryScene? Scene
+        => Chapter is { } chapter && _scenes.SelectedIndex >= 0 && _scenes.SelectedIndex < chapter.Scenes.Count
+            ? chapter.Scenes[_scenes.SelectedIndex]
+            : null;
+
+    /// <summary>하나만 골라 보는 에피소드. "전체"면 null.</summary>
+    internal StoryEpisode? Episode
+        => Scene is { } scene && _episodes.SelectedIndex >= 1 && _episodes.SelectedIndex <= scene.Episodes.Count
+            ? scene.Episodes[_episodes.SelectedIndex - 1]
+            : null;
+
+    /// <summary>목록에 선 에피소드 — 찾기와 필터를 지난 줄만 든 채로.</summary>
+    internal IReadOnlyList<StoryEpisode> ListedEpisodes { get; private set; } = [];
+
+    /// <summary>목록에 보이는 줄 — 에피소드의 차례대로.</summary>
+    internal IReadOnlyList<LibraryLine> ListedLines => ListedEpisodes.SelectMany(e => e.Lines).ToList();
 
     private Control BuildLibraryPanel()
     {
+        _chapters.SelectionChanged += (_, _) => OnChapterPicked();
+        _scenes.SelectionChanged += (_, _) => OnScenePicked();
+        _episodes.SelectionChanged += (_, _) => RefreshLibrary();
         _search.TextChanged += (_, _) => RefreshLibrary();
         _onlyWithKind.IsCheckedChanged += (_, _) => RefreshLibrary();
         _lines.SelectionChanged += (_, _) => ShowSelectedLine();
+
         // 목록을 갈아 끼우는 사이에 틀이 빈 항목으로 불릴 수 있다.
-        _lines.ItemTemplate = new FuncDataTemplate<LibraryLine>(
-            (line, _) => line is null ? new Control() : BuildLineRow(line), supportsRecycling: false);
+        _lines.ItemTemplate = new FuncDataTemplate<object>(
+            (item, _) => item switch
+            {
+                EpisodeHeader header => BuildEpisodeRow(header),
+                LibraryLine line => BuildLineRow(line),
+                _ => new Control(),
+            },
+            supportsRecycling: false);
+
+        // 에피소드의 머리는 고르는 줄이 아니다.
+        _lines.ContainerPrepared += (_, e) => e.Container.IsEnabled = _lines.Items[e.Index] is not EpisodeHeader;
 
         StackPanel kinds = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
 
@@ -64,13 +104,118 @@ public partial class MainWindow
             kinds.Children.Add(button);
         }
 
-        StackPanel head = new() { Spacing = 6, Margin = new Thickness(8, 8, 8, 4), Children = { _search, kinds, _onlyWithKind, _listCount } };
+        Grid pickers = new() { ColumnDefinitions = new ColumnDefinitions("Auto,*"), RowDefinitions = new RowDefinitions("Auto,Auto,Auto") };
+        AddPicker(pickers, 0, "챕터", _chapters);
+        AddPicker(pickers, 1, "장면", _scenes);
+        AddPicker(pickers, 2, "에피소드", _episodes);
+
+        StackPanel head = new()
+        {
+            Spacing = 6,
+            Margin = new Thickness(8, 8, 8, 4),
+            Children = { pickers, _search, kinds, _onlyWithKind, _listCount },
+        };
         DockPanel.SetDock(head, Dock.Top);
 
         return new DockPanel { Children = { head, _lines } };
     }
 
-    /// <summary>찾기와 필터로 목록을 다시 채운다. 고른 줄이 남아 있으면 그대로 고른 채다.</summary>
+    private static void AddPicker(Grid grid, int row, string label, ComboBox picker)
+    {
+        TextBlock caption = new()
+        {
+            Text = label,
+            FontSize = 12,
+            Foreground = Palette.Dim,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 8, 0),
+        };
+        picker.Margin = new Thickness(0, 0, 0, 4);
+
+        Grid.SetRow(caption, row);
+        Grid.SetRow(picker, row);
+        Grid.SetColumn(picker, 1);
+        grid.Children.Add(caption);
+        grid.Children.Add(picker);
+    }
+
+    /// <summary>대본을 새로 열었다 — 챕터의 목록을 채우고 첫 챕터 · 첫 장면을 고른다.</summary>
+    private void ResetPickers()
+    {
+        _refreshing = true;
+
+        try
+        {
+            _chapters.ItemsSource = _library?.Chapters.Select(c => $"{c.Name}  ·  장면 {c.Scenes.Count}").ToList() ?? [];
+            _chapters.SelectedIndex = _library is { Chapters.Count: > 0 } ? 0 : -1;
+            FillScenes();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        RefreshLibrary();
+    }
+
+    private void OnChapterPicked()
+    {
+        if (_refreshing)
+        {
+            return;
+        }
+
+        _refreshing = true;
+
+        try
+        {
+            FillScenes();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        RefreshLibrary();
+    }
+
+    private void OnScenePicked()
+    {
+        if (_refreshing)
+        {
+            return;
+        }
+
+        _refreshing = true;
+
+        try
+        {
+            FillEpisodes();
+        }
+        finally
+        {
+            _refreshing = false;
+        }
+
+        RefreshLibrary();
+    }
+
+    private void FillScenes()
+    {
+        _scenes.ItemsSource = Chapter?.Scenes.Select(s => $"{s.Name}  ·  에피소드 {s.Episodes.Count} · {s.LineCount}줄").ToList() ?? [];
+        _scenes.SelectedIndex = Chapter is { Scenes.Count: > 0 } ? 0 : -1;
+        FillEpisodes();
+    }
+
+    private void FillEpisodes()
+    {
+        List<string> names = ["전체"];
+        names.AddRange(Scene?.Episodes.Select(e => $"{e.Title}  ·  {(e.Missing ? "대본에 없다" : $"{e.Lines.Count}줄")}") ?? []);
+        _episodes.ItemsSource = names;
+        _episodes.SelectedIndex = 0;
+    }
+
+    /// <summary>고른 장면을 찾기와 필터로 걸러 목록을 다시 채운다. 고른 줄이 남아 있으면 그대로 고른 채다.</summary>
     private void RefreshLibrary()
     {
         if (_refreshing)
@@ -83,17 +228,28 @@ public partial class MainWindow
         try
         {
             LibraryLine? selected = _lines.SelectedItem as LibraryLine;
-            IReadOnlyList<LibraryLine> found = _library?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null) ?? [];
+            StoryScene? scene = Scene;
 
-            _lines.ItemsSource = found;
-            _lines.SelectedItem = selected is not null && found.Contains(selected) ? selected : null;
+            ListedEpisodes = scene?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null, Episode?.Id) ?? [];
 
-            _listCount.Text = _library is null ? string.Empty : $"{found.Count}줄 / 전체 {_library.Lines.Count}줄 · 파일 {_library.Files.Count}개";
+            List<object> items = [];
+
+            foreach (StoryEpisode episode in ListedEpisodes)
+            {
+                items.Add(new EpisodeHeader(episode, scene!.Episodes.First(e => e.Id == episode.Id).Lines.Count));
+                items.AddRange(episode.Lines);
+            }
+
+            _lines.ItemsSource = items;
+            _lines.SelectedItem = selected is not null && items.Contains(selected) ? selected : null;
+
+            int shown = ListedEpisodes.Sum(e => e.Lines.Count);
+            _listCount.Text = scene is null ? string.Empty : $"{shown}줄 / 이 장면 {scene.LineCount}줄 · 에피소드 {ListedEpisodes.Count}/{scene.Episodes.Count}";
             _status.Text = _library switch
             {
-                null => "대본 폴더를 연다 — 줄을 고르면 스텝과 커맨드가 종류별로 보인다",
-                { Problems.Count: > 0 } => $"읽지 못한 파일 {_library.Problems.Count}개 — {_library.Problems[0]}",
-                _ => $"{_library.Root} — 대사 줄 {_library.Lines.Count}개",
+                null => "대본 폴더를 연다 — 챕터와 장면을 고르면 그 장면의 에피소드가 한 번에 선다",
+                { Problems.Count: > 0 } => $"문제 {_library.Problems.Count}개 — {_library.Problems[0]}",
+                _ => $"{_library.Root} — 챕터 {_library.Chapters.Count}개 · 대사 줄 {_library.LineCount}개",
             };
         }
         finally
@@ -102,6 +258,32 @@ public partial class MainWindow
         }
 
         ShowSelectedLine();
+    }
+
+    private static Control BuildEpisodeRow(EpisodeHeader header)
+    {
+        StoryEpisode episode = header.Episode;
+        string count = episode.Missing ? "대본에 이 노드가 없다"
+            : episode.Lines.Count == header.Total ? $"{header.Total}줄"
+            : $"{episode.Lines.Count} / {header.Total}줄";
+
+        return new Border
+        {
+            BorderBrush = Palette.Line,
+            BorderThickness = new Thickness(0, 0, 0, 1),
+            Padding = new Thickness(0, 6, 0, 4),
+            Child = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Children =
+                {
+                    new TextBlock { Text = episode.Title, FontWeight = FontWeight.SemiBold, FontSize = 12, Foreground = Palette.Dim },
+                    new TextBlock { Text = episode.NodeName, FontFamily = Palette.Mono, FontSize = 11, Foreground = Palette.Faint, VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock { Text = count, FontSize = 11, Foreground = episode.Missing ? Palette.Warning : Palette.Faint, VerticalAlignment = VerticalAlignment.Center },
+                },
+            },
+        };
     }
 
     private static Control BuildLineRow(LibraryLine line)
@@ -153,6 +335,30 @@ public partial class MainWindow
     }
 
     // ── 테스트 손잡이 ───────────────────────────────────────────────────────
+
+    /// <summary>챕터를 Id로 고른다. 없으면 false.</summary>
+    internal bool SelectChapter(string chapterId)
+    {
+        int index = _library?.Chapters.ToList().FindIndex(c => c.Id == chapterId) ?? -1;
+        _chapters.SelectedIndex = index;
+        return index >= 0;
+    }
+
+    /// <summary>고른 챕터의 장면을 Id로 고른다. 없으면 false.</summary>
+    internal bool SelectScene(string sceneId)
+    {
+        int index = Chapter?.Scenes.ToList().FindIndex(s => s.Id == sceneId) ?? -1;
+        _scenes.SelectedIndex = index;
+        return index >= 0;
+    }
+
+    /// <summary>에피소드 하나만 본다. null이면 장면의 에피소드 전체.</summary>
+    internal bool SelectEpisode(string? episodeId)
+    {
+        int index = episodeId is null ? 0 : (Scene?.Episodes.ToList().FindIndex(e => e.Id == episodeId) ?? -1) + 1;
+        _episodes.SelectedIndex = index;
+        return index > 0 || episodeId is null;
+    }
 
     // TextChanged는 디스패처를 한 번 돈 뒤에 온다 — 테스트가 바로 읽을 수 있게 여기서 채운다.
     internal void SearchFor(string text)

@@ -9,9 +9,10 @@ using St.Authoring.Settings;
 namespace St.App;
 
 /// <summary>
-/// 셸 — 위에 대본 열기, 왼쪽에 줄 찾기와 종류 필터, 가운데에 고른 줄의 스텝 목록, 아래에 상태(docs/PLAN.md §4.5).
+/// 셸 — 위에 대본 열기, 왼쪽에 챕터 · 장면 · 에피소드 고르기와 줄 찾기 · 종류 필터, 가운데에 고른 줄의 스텝 목록,
+/// 아래에 상태(docs/PLAN.md §4.5 · §4.7).
 /// K4-1은 읽는 화면이다 — 고치지 않는다. 고치는 일(K4-2부터)은 <c>St.Authoring</c>의 조작(<c>LineEdit</c>)을 지난다.
-/// 맡은 일별 partial: <c>Files</c>(열기) · <c>Library</c>(줄 목록) · <c>Line</c>(스텝 목록).
+/// 맡은 일별 partial: <c>Files</c>(열기) · <c>Library</c>(챕터 · 장면 · 줄 목록) · <c>Line</c>(스텝 목록).
 /// </summary>
 public partial class MainWindow : Window
 {
@@ -65,7 +66,7 @@ public partial class MainWindow : Window
         }
         else
         {
-            RefreshLibrary();
+            ResetPickers();
         }
 
         if (_settings.LoadProblem is { } problem)
