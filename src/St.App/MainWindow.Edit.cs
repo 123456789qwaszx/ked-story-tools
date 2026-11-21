@@ -383,6 +383,14 @@ public partial class MainWindow
         => _inspector.Children.OfType<FormGrid>().Select(g => g.Cell(label)).FirstOrDefault(c => c is not null) is { } cell
            && ArgField.TrySet(cell, text);
 
+    /// <summary>오른쪽의 그 이름의 칸에 딸린 후보 딱지의 수.</summary>
+    internal int FieldCandidates(string label)
+        => _inspector.Children.OfType<FormGrid>().Select(g => g.Cell(label)).FirstOrDefault(c => c is not null) is { } cell ? ArgField.CandidateCount(cell) : 0;
+
+    /// <summary>그 칸의 후보를 모두 펴거나 다시 접는다. 펼 것이 없으면 false.</summary>
+    internal bool ToggleFieldCandidates(string label)
+        => _inspector.Children.OfType<FormGrid>().Select(g => g.Cell(label)).FirstOrDefault(c => c is not null) is { } cell && ArgField.ToggleCandidates(cell);
+
     /// <summary>오른쪽의 그 이름의 칸을 걸음 수만큼 끈 것과 같다. 끌 수 없는 칸이면 false.</summary>
     internal bool ScrubField(string label, int steps, bool fine = false)
     {

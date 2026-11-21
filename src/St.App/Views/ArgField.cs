@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Layout;
+using Avalonia.Media;
 using Ked.Presentation.Core;
 using St.Authoring.Editing;
 
@@ -23,6 +24,7 @@ internal static class ArgField
 {
     private const string Unwritten = "(적지 않음)";
     private const int ShownCandidates = 14;
+    private const string MoreTag = "more";
 
     // 이만큼 끌 때마다 한 걸음.
     private const double ScrubPixelsPerStep = 6;
@@ -135,6 +137,24 @@ internal static class ArgField
         return true;
     }
 
+    /// <summary>칸에 딸린 후보 딱지의 수(펴고 접는 딱지는 빼고). 후보가 없는 칸이면 0.</summary>
+    public static int CandidateCount(Control cell)
+        => Chips(cell)?.Children.Count(c => !Equals(c.Tag, MoreTag)) ?? 0;
+
+    /// <summary>후보를 모두 펴거나 다시 접는다 — 끝의 딱지를 누른 것과 같다. 펼 것이 없으면 false.</summary>
+    public static bool ToggleCandidates(Control cell)
+    {
+        if (Chips(cell) is not { Tag: Action toggle } chips || chips.Children.All(c => !Equals(c.Tag, MoreTag)))
+        {
+            return false;
+        }
+
+        toggle();
+        return true;
+    }
+
+    private static WrapPanel? Chips(Control cell) => (cell as Panel)?.Children.OfType<WrapPanel>().FirstOrDefault();
+
     // 글 칸에 Enter를 친 것과 같다 — 칸이 제 손으로 알린다.
     private static void Commit(TextBox box) => box.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
 
@@ -192,27 +212,53 @@ internal static class ArgField
             return box;
         }
 
-        // 후보를 누르면 그 값이 된다.
+        // 후보를 누르면 그 값이 된다. 많으면 앞의 몇만 보이고, 끝의 딱지를 누르면 모두 펴진다(다시 누르면 접힌다).
         WrapPanel chips = new();
+        bool expanded = false;
 
-        foreach (string candidate in candidates.Take(ShownCandidates))
+        void Fill()
         {
-            bool current = candidate == written;
-            Border chip = Palette.Chip(candidate, current ? null : Palette.Dim, current ? Palette.Picked : null, Palette.Mono);
-            chip.Margin = new Thickness(0, 0, 4, 3);
-            chip.Cursor = new Cursor(StandardCursorType.Hand);
-            chip.PointerPressed += (_, _) =>
+            chips.Children.Clear();
+            string now = (box.Text ?? string.Empty).Trim();
+
+            foreach (string candidate in expanded ? candidates : candidates.Take(ShownCandidates))
             {
-                box.Text = candidate;
-                Send();
-            };
-            chips.Children.Add(chip);
+                bool current = candidate == now;
+                Border chip = Palette.Chip(candidate, current ? null : Palette.Dim, current ? Palette.Picked : null, Palette.Mono);
+                chip.Margin = new Thickness(0, 0, 4, 3);
+                chip.Cursor = new Cursor(StandardCursorType.Hand);
+                chip.PointerPressed += (_, _) =>
+                {
+                    box.Text = candidate;
+                    Send();
+                };
+                chips.Children.Add(chip);
+            }
+
+            if (candidates.Count > ShownCandidates)
+            {
+                Border more = Palette.Chip(expanded ? "접기" : $"… {candidates.Count - ShownCandidates}개 더", Palette.Faint, Brushes.Transparent);
+                more.Tag = MoreTag;
+                more.Margin = new Thickness(0, 0, 4, 3);
+                more.Cursor = new Cursor(StandardCursorType.Hand);
+                ToolTip.SetTip(more, expanded ? "앞의 몇 개만 보인다" : "후보를 모두 편다");
+                more.PointerPressed += (_, e) =>
+                {
+                    Toggle();
+                    e.Handled = true;
+                };
+                chips.Children.Add(more);
+            }
         }
 
-        if (candidates.Count > ShownCandidates)
+        void Toggle()
         {
-            chips.Children.Add(new TextBlock { Text = $"… {candidates.Count - ShownCandidates}개 더", FontSize = 11, Foreground = Palette.Faint, VerticalAlignment = VerticalAlignment.Center });
+            expanded = !expanded;
+            Fill();
         }
+
+        chips.Tag = (Action)Toggle;
+        Fill();
 
         return new StackPanel { Spacing = 3, Children = { box, chips } };
     }

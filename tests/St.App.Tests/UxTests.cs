@@ -260,4 +260,35 @@ public class UxTests
             window.Close();
         });
     }
+
+    [Fact]
+    public void 후보가_많으면_앞의_몇만_보이고_누르면_모두_펴진다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            // 표정이 스무 가지 쓰인 대본.
+            string dir = Directory.CreateTempSubdirectory("st-ux-many-").FullName;
+            string faces = string.Concat(Enumerable.Range(1, 20).Select(i => $"<<at start face s1 f{i:00}>>\n"));
+            File.WriteAllText(Path.Combine(dir, "a.yarn"), $"title: A\n---\n{faces}가: 하나 #line:t1\n===\n");
+
+            MainWindow window = new(Path.Combine(Directory.CreateTempSubdirectory("st-ux-set-").FullName, "settings.json"));
+            window.Show();
+            window.OpenPath(dir);
+            window.SelectLine("t1");
+            window.SelectCommand("t1/start/acting/0");
+
+            Assert.Equal(14, window.FieldCandidates("표정"));
+
+            Assert.True(window.ToggleFieldCandidates("표정"));
+            Assert.Equal(20, window.FieldCandidates("표정"));
+            RenderShots.Save(window, "k4-5-candidates");
+
+            Assert.True(window.ToggleFieldCandidates("표정"));
+            Assert.Equal(14, window.FieldCandidates("표정"));
+
+            // 후보가 적은 칸에는 펼 것이 없다.
+            Assert.False(window.ToggleFieldCandidates("슬롯"));
+            window.Close();
+        });
+    }
 }
