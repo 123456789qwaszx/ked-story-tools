@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 연출 고치기의 도메인. Avalonia를 모른다 — 줄 읽기는 코어의 것이고, 여기에는 줄 고치기(yarn을 쓰는 함수)가 있다.
+       편집은 전부 조작(LineEdit)으로 수렴하고, 그리기는 St.App의 몫이다. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>St.Authoring</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="St.Authoring.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- 런타임에서 복사 반입한 연출 코어. 명세 표 · 줄 읽기 · 시간 토큰은 이 한 벌만 쓴다. -->
+    <ProjectReference Include="..\Ked.Presentation.Core\Ked.Presentation.Core.csproj" />
+  </ItemGroup>
+</Project>

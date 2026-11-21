@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\St.Authoring\St.Authoring.csproj" />
+    <ProjectReference Include="..\..\src\St.Cli\St.Cli.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 견본: presentation_demo_Demo_Presentation.yarn은 런타임의 데모 대본 그대로(원본 커밋은 코어 사본의 vendoring.md).
+         바이트 비교 대상이므로 손대지 않는다. 대사 원문이 든 대본은 이 저장소에 넣지 않는다. -->
+    <None Include="Fixtures\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

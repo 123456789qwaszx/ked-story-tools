@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- 창 없이 도는 명령줄 도구 — 줄을 종류로 걸러 읽고, 조작 다섯으로 고친다.
+       AI와 작업공간의 파이썬 도구가 부른다. Avalonia를 모른다 — St.Authoring만 쓴다. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>St.Cli</RootNamespace>
+    <AssemblyName>st</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="St.Authoring.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\St.Authoring\St.Authoring.csproj" />
+  </ItemGroup>
+</Project>
