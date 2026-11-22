@@ -266,7 +266,15 @@ public partial class MainWindow
         foreach (OutlineArg arg in command.Args.Where(a => a.Value.Length > 0))
         {
             // 적지 않아 생략값으로 가는 칸은 흐리게 — 값은 같지만 대본에는 없다.
-            row.Children.Add(Palette.Chip($"{arg.Label} {arg.Value}", arg.Written ? null : Palette.Faint, arg.Written ? null : Brushes.Transparent));
+            Border chip = Palette.Chip($"{arg.Label} {arg.Value}", arg.Written ? null : Palette.Faint, arg.Written ? null : Brushes.Transparent);
+
+            // 슬롯이면 거기 누가 서 있는지 — 이 커맨드 앞에서 셈한다.
+            if (SlotExplainer(arg.Spec, command.Source) is { } explain && explain(arg.Value) is { } who)
+            {
+                ToolTip.SetTip(chip, who);
+            }
+
+            row.Children.Add(chip);
         }
 
         Control pickable = Pickable(row, _picked.Contains(command.Address), modifiers => PickCommand(command.Address, modifiers));

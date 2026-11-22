@@ -287,7 +287,7 @@ public partial class MainWindow
             // 넣기 전이라 파일은 그대로다 — 적는 대로 채우던 것에 담긴다. 다시 지은 뒤에 오는 옛 칸의 글은 버린다.
             Control editor = ArgField.Create(
                 spec, pending.Values[i],
-                new ArgFieldOptions(Live: true, Candidates: Candidates(spec), Fill: pending.Placeholders[i]),
+                new ArgFieldOptions(Live: true, Candidates: Candidates(spec), Fill: pending.Placeholders[i], Describe: SlotExplainer(spec, ShownOutline?.Line.Line ?? 0)),
                 value =>
                 {
                     if (build == _inspectorBuild)

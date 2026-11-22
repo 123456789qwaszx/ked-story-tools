@@ -13,7 +13,9 @@ namespace St.App.Views;
 /// <param name="Live">글이 바뀔 때마다 알리는가(넣기 전에 채우는 칸). 아니면 Enter를 치거나 포커스가 떠날 때 알린다(이미 있는 커맨드의 칸).</param>
 /// <param name="Candidates">값의 후보 — 누르는 딱지로 선다.</param>
 /// <param name="Fill">카드의 채울 자리 이름(표정 · 인물 …). 빈 칸에 흐리게 보인다.</param>
-internal sealed record ArgFieldOptions(bool Enabled = true, bool Live = false, IReadOnlyList<string>? Candidates = null, string? Fill = null);
+/// <param name="Describe">값에 대한 풀이 — 슬롯 칸이면 거기 누가 서 있는가. 칸과 후보 딱지에 마우스를 올리면 뜬다. 풀 것이 없으면 null을 돌려준다.</param>
+internal sealed record ArgFieldOptions(
+    bool Enabled = true, bool Live = false, IReadOnlyList<string>? Candidates = null, string? Fill = null, Func<string, string?>? Describe = null);
 
 /// <summary>
 /// 커맨드의 인자 칸 하나를 화면의 칸으로 — 갈래가 모양을 정한다(docs/PLAN.md §4.5 · §4.6):
@@ -137,6 +139,9 @@ internal static class ArgField
         return true;
     }
 
+    /// <summary>칸에 마우스를 올리면 뜨는 글(테스트 손잡이). 없으면 null.</summary>
+    public static string? TipOf(Control cell) => TextBoxOf(cell) is { } box ? ToolTip.GetTip(box) as string : null;
+
     /// <summary>칸에 딸린 후보 딱지의 수(펴고 접는 딱지는 빼고). 후보가 없는 칸이면 0.</summary>
     public static int CandidateCount(Control cell)
         => Chips(cell)?.Children.Count(c => !Equals(c.Tag, MoreTag)) ?? 0;
@@ -207,6 +212,15 @@ internal static class ArgField
             }
         };
 
+        if (options.Describe is { } describe)
+        {
+            // 잠긴 칸(읽기만인 줄)에서도 뜨게 한다 — 누가 서 있는지는 고치지 않아도 알고 싶다.
+            ToolTip.SetShowOnDisabled(box, true);
+            void Explain() => ToolTip.SetTip(box, describe((box.Text ?? string.Empty).Trim()));
+            box.TextChanged += (_, _) => Explain();
+            Explain();
+        }
+
         if (!options.Enabled || options.Candidates is not { Count: > 0 } candidates)
         {
             return box;
@@ -227,6 +241,12 @@ internal static class ArgField
                 Border chip = Palette.Chip(candidate, current ? null : Palette.Dim, current ? Palette.Picked : null, Palette.Mono);
                 chip.Margin = new Thickness(0, 0, 4, 3);
                 chip.Cursor = new Cursor(StandardCursorType.Hand);
+
+                if (options.Describe?.Invoke(candidate) is { } about)
+                {
+                    ToolTip.SetTip(chip, about);
+                }
+
                 chip.PointerPressed += (_, _) =>
                 {
                     box.Text = candidate;

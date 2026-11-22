@@ -13,6 +13,7 @@ public sealed record OutlineArg(string Name, string Label, string Value, bool Wr
 }
 
 /// <summary>스텝에 보이는 커맨드 하나. 주소로 고친다(K4-2).</summary>
+/// <param name="Source">원문의 줄 번호(1부터) — 그 앞에서 슬롯에 누가 섰는가를 셀 때 쓴다(<see cref="SlotCast"/>).</param>
 public sealed record OutlineCommand(
     CommandAddress Address,
     string Name,
@@ -20,7 +21,8 @@ public sealed record OutlineCommand(
     CommandKind Kind,
     float Delay,
     float? Duration,
-    IReadOnlyList<OutlineArg> Args);
+    IReadOnlyList<OutlineArg> Args,
+    int Source);
 
 /// <summary>줄의 스텝 하나 — 앵커 · 대사 조각 · 간격 · 고른 종류의 커맨드.</summary>
 /// <param name="Gap">간격(초). 적지 않았으면 null.</param>
@@ -111,7 +113,8 @@ public sealed class LineOutline
                     address, command.Name, command.Spec.Summary, command.Spec.Kind, command.Delay, command.Duration,
                     command.Bound
                         .Select(b => new OutlineArg(b.Spec.Name, b.Spec.Label, b.Value ?? string.Empty, b.Token is not null, b.Spec))
-                        .ToList()));
+                        .ToList(),
+                    command.Line));
             }
 
             steps.Add(new OutlineStep(

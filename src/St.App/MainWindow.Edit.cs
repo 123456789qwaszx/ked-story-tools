@@ -115,7 +115,7 @@ public partial class MainWindow
         {
             Control editor = ArgField.Create(
                 arg.Spec, arg.Written ? arg.Value : string.Empty,
-                new ArgFieldOptions(editable, Candidates: Candidates(arg.Spec)),
+                new ArgFieldOptions(editable, Candidates: Candidates(arg.Spec), Describe: SlotExplainer(arg.Spec, command.Source)),
                 value => Commit(build, new SetValue(command.Address, arg.Name, value)));
 
             fields.Add(arg.Label, editor, arg.Spec.Note, arg.Spec);
@@ -398,6 +398,10 @@ public partial class MainWindow
     /// <summary>그 칸의 후보를 모두 펴거나 다시 접는다. 펼 것이 없으면 false.</summary>
     internal bool ToggleFieldCandidates(string label)
         => _inspector.Children.OfType<FormGrid>().Select(g => g.Cell(label)).FirstOrDefault(c => c is not null) is { } cell && ArgField.ToggleCandidates(cell);
+
+    /// <summary>오른쪽의 그 이름의 칸에 마우스를 올리면 뜨는 글. 없으면 null.</summary>
+    internal string? FieldTip(string label)
+        => _inspector.Children.OfType<FormGrid>().Select(g => g.Cell(label)).FirstOrDefault(c => c is not null) is { } cell ? ArgField.TipOf(cell) : null;
 
     /// <summary>오른쪽의 그 이름의 칸을 걸음 수만큼 끈 것과 같다. 끌 수 없는 칸이면 false.</summary>
     internal bool ScrubField(string label, int steps, bool fine = false)

@@ -250,4 +250,34 @@ public class EditingTests
             window.Close();
         });
     }
+
+    [Fact]
+    public void 슬롯에_마우스를_올리면_누가_서_있는지_뜬다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            string dir = Directory.CreateTempSubdirectory("st-cast-").FullName;
+            File.WriteAllText(Path.Combine(dir, "a.yarn"),
+                "title: A\n---\n<<at in slot s1>>\n<<at in cast s1 nazuna a 06>>\n<<at in face s1 07>>\n가: [beat=in/]하나 #line:t1\n\n<<at start face_swap s1 09>>\n나: 둘 #line:t2\n===\n");
+
+            MainWindow window = new(Path.Combine(Directory.CreateTempSubdirectory("st-cast-set-").FullName, "settings.json"));
+            window.Show();
+            window.OpenPath(dir);
+            window.SelectLine("t1");
+
+            // 오른쪽의 슬롯 칸 — 이 커맨드(5행) 앞까지: 표정은 cast의 06이다.
+            Assert.True(window.SelectCommand("t1/in/expression/0"));
+            Assert.Equal("s1 — nazuna · 포즈 a · 표정 06 (4행에서 세웠다)", window.FieldTip("슬롯"));
+
+            // 다음 줄에서는 앞 줄의 face가 셈에 든다.
+            window.SelectLine("t2");
+            window.SelectCommand("t2/start/expression/0");
+            Assert.Equal("s1 — nazuna · 포즈 a · 표정 07 (4행에서 세웠다)", window.FieldTip("슬롯"));
+
+            // 칸에 다른 슬롯을 적어 보면 그 슬롯을 말한다(고치기 전에도).
+            Assert.StartsWith("s1 — nazuna", window.SlotTip("s1", 8));
+            Assert.StartsWith("s2 — 이 앞에서 세운 캐릭터가 없다", window.SlotTip("s2", 8));
+            window.Close();
+        });
+    }
 }
