@@ -101,7 +101,7 @@ public class AddingTests
             (MainWindow window, string path, _) = Open("t2");
             window.SelectStep("end");
 
-            window.ChooseAddKind(CommandKind.Acting);
+            window.ChooseAddKind(CommandKind.Emoji);
             window.ChooseAdd("emoji");
             window.FillPending(0, 0, "s1");
             window.FillPending(0, 1, "star");

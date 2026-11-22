@@ -20,12 +20,14 @@ internal static class Palette
 
     public static readonly FontFamily Mono = new("Cascadia Mono,Consolas,Menlo,monospace");
 
-    /// <summary>종류의 색. 연출가의 넷이 아닌 것(세우기 · 소리 · 시간)은 회색이다.</summary>
+    /// <summary>종류의 색. 연출가의 종류가 아닌 것(세우기 · 소리 · 시간)은 회색이다.</summary>
     public static IBrush Of(CommandKind kind) => kind switch
     {
         CommandKind.Camera => Brush.Parse("#5AA9E6"),
         CommandKind.Placement => Brush.Parse("#7BC67B"),
+        CommandKind.Expression => Brush.Parse("#F07FA8"),
         CommandKind.Acting => Brush.Parse("#F2A65A"),
+        CommandKind.Emoji => Brush.Parse("#4FD1C5"),
         CommandKind.Screen => Brush.Parse("#C58AF9"),
         _ => Faint,
     };

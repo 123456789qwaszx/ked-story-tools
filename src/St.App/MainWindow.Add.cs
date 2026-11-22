@@ -135,7 +135,7 @@ public partial class MainWindow
             Child = new TextBlock { Text = $"{step.Anchor}에 더하기", FontWeight = FontWeight.SemiBold, FontSize = 13 },
         });
 
-        // 종류 — 연출가의 넷.
+        // 종류 — 연출가의 종류.
         ComboBox kinds = new()
         {
             ItemsSource = DirectorKinds.Select(CommandKinds.Label).ToList(),

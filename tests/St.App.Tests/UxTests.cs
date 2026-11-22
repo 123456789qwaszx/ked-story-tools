@@ -38,15 +38,15 @@ public class UxTests
             (MainWindow window, string path, _) = Open();
 
             Assert.True(window.SelectCommand("t1/in/placement/0"));
-            Assert.True(window.SelectCommand("t1/a/acting/0", KeyModifiers.Control));
+            Assert.True(window.SelectCommand("t1/a/expression/0", KeyModifiers.Control));
             Assert.Equal(2, window.PickedCommands.Count);
             Assert.Empty(window.InspectorFields);
             RenderShots.Save(window, "k4-5-many");
 
             // Ctrl로 다시 누르면 빠진다.
-            window.SelectCommand("t1/a/acting/0", KeyModifiers.Control);
+            window.SelectCommand("t1/a/expression/0", KeyModifiers.Control);
             Assert.Single(window.PickedCommands);
-            window.SelectCommand("t1/a/acting/0", KeyModifiers.Control);
+            window.SelectCommand("t1/a/expression/0", KeyModifiers.Control);
 
             Assert.True(window.PressKey(Key.Delete));
 
@@ -90,7 +90,7 @@ public class UxTests
             (MainWindow window, string path, _) = Open();
 
             window.SelectCommand("t1/start/acting/0");
-            window.SelectCommand("t1/a/acting/0", KeyModifiers.Control);
+            window.SelectCommand("t1/a/expression/0", KeyModifiers.Control);
             Assert.True(window.PressKey(Key.C, KeyModifiers.Control));
             Assert.Equal(2, window.ClipboardCount);
 
@@ -141,7 +141,7 @@ public class UxTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, _, _) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
             window.EditField("표정", "07");
 
             window.SetComparing(true);
@@ -275,7 +275,7 @@ public class UxTests
             window.Show();
             window.OpenPath(dir);
             window.SelectLine("t1");
-            window.SelectCommand("t1/start/acting/0");
+            window.SelectCommand("t1/start/expression/0");
 
             Assert.Equal(14, window.FieldCandidates("표정"));
 

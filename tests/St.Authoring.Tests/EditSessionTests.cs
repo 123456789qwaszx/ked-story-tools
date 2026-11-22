@@ -6,7 +6,7 @@ namespace St.Authoring.Tests;
 
 public class EditSessionTests
 {
-    private static readonly CommandAddress FaceSwap = new("line:t1", "a", CommandKind.Acting, 0);
+    private static readonly CommandAddress FaceSwap = new("line:t1", "a", CommandKind.Expression, 0);
 
     private static (EditSession Session, string A, string B) Open()
     {

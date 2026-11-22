@@ -51,7 +51,7 @@ public class UxTests
         LineRead line = Scripts.Read(text, "t1");
 
         IReadOnlyList<CommandClip> clips = CommandClips.Copy(
-            text, line, new HashSet<CommandAddress> { At("in", CommandKind.Acting, 0), At("start", CommandKind.Placement, 0), At("a", CommandKind.Acting, 0) });
+            text, line, new HashSet<CommandAddress> { At("in", CommandKind.Expression, 0), At("start", CommandKind.Placement, 0), At("a", CommandKind.Expression, 0) });
 
         Assert.Equal(new[] { "in face", "start fade_in", "a face_swap" }, clips.Select(c => $"{c.Anchor} {c.Name}"));
         Assert.Equal(new[] { null, "E04", null }, clips.Select(c => c.Card));
@@ -69,7 +69,7 @@ public class UxTests
     public void 같은_이름의_앵커가_있으면_거기에_붙는다()
     {
         LineRead line = Scripts.Read(Scripts.Sample, "t1");
-        IReadOnlyList<CommandClip> clips = CommandClips.Copy(Scripts.Sample, line, new HashSet<CommandAddress> { At("a", CommandKind.Acting, 0) });
+        IReadOnlyList<CommandClip> clips = CommandClips.Copy(Scripts.Sample, line, new HashSet<CommandAddress> { At("a", CommandKind.Expression, 0) });
 
         AddCommand edit = (AddCommand)CommandClips.Paste("t1", ["in", "start", "a", "b", "end"], clips, "start")[0];
 
@@ -85,8 +85,8 @@ public class UxTests
             new AddCommand("t1", "start", "face", ["s1", "2"]),
         ]).Text;
 
-        // start의 연기 셋(05 · 1 · 2)에서 첫째와 셋째를 뺀다.
-        EditOutcome outcome = LineEditor.ApplyAll(text, CommandClips.Remove([At("start", CommandKind.Acting, 0), At("start", CommandKind.Acting, 2)]));
+        // start의 표정 셋(05 · 1 · 2)에서 첫째와 셋째를 뺀다.
+        EditOutcome outcome = LineEditor.ApplyAll(text, CommandClips.Remove([At("start", CommandKind.Expression, 0), At("start", CommandKind.Expression, 2)]));
 
         Assert.True(outcome.Ok, outcome.Error);
         Assert.Equal(new[] { "start face s1 1 +0" }, Scripts.Commands(outcome.Line!).Where(c => c.StartsWith("start", StringComparison.Ordinal)));
@@ -117,8 +117,8 @@ public class UxTests
         LineRead before = Scripts.Read(Scripts.Sample, "t1");
         string text = LineEditor.ApplyAll(Scripts.Sample,
         [
-            new SetValue(At("a", CommandKind.Acting, 0), "face", "07"),
-            new SetDelay(At("in", CommandKind.Acting, 0), "1s"),
+            new SetValue(At("a", CommandKind.Expression, 0), "face", "07"),
+            new SetDelay(At("in", CommandKind.Expression, 0), "1s"),
             new SetGap("t1", "in", "2s"),
             new AddCommand("t1", "end", "fade_out", ["s1"]),
         ]).Text;

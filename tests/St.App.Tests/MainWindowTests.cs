@@ -147,7 +147,7 @@ public class MainWindowTests
             Assert.Equal(1, all.Steps[2].Others[CommandKind.Sound]);
             RenderShots.Save(window, "k4-1-line");
 
-            window.SetKinds(CommandKind.Acting);
+            window.SetKinds(CommandKind.Expression, CommandKind.Emoji);
             LineOutline acting = window.ShownOutline!;
             Assert.Equal(new[] { "face", "face_swap", "emoji" }, acting.Steps.SelectMany(s => s.Commands).Select(c => c.Name));
             Assert.Equal(0.5f, acting.Steps[0].Commands[0].Delay, 3);

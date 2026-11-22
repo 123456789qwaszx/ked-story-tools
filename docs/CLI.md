@@ -18,22 +18,22 @@ Windows에서는 `st.cmd`, 그 밖에서는 `./st`. 처음 부르면 빌드한�
 | | |
 |---|---|
 | `<경로>` | yarn 파일 하나, 또는 대본 폴더(그 아래의 `*.yarn` 전부). 폴더면 LineId로 파일을 찾는다 — 두 파일에 있으면 거절한다 |
-| `<주소>` | `LineId/앵커/종류/순번` — `ln_abc/start/acting/0`. LineId는 대본의 `#line:` 뒤의 글이다. 순번은 그 앵커의 같은 종류 안에서 몇 번째인가(0부터) |
-| `<종류>` | `camera` · `placement` · `acting` · `screen` · `setup` · `sound` · `time` |
+| `<주소>` | `LineId/앵커/종류/순번` — `ln_abc/start/expression/0`. LineId는 대본의 `#line:` 뒤의 글이다. 순번은 그 앵커의 같은 종류 안에서 몇 번째인가(0부터) |
+| `<종류>` | `camera` · `placement` · `expression`(표정) · `acting`(연기) · `emoji`(이모지) · `screen` · `setup` · `sound` · `time` |
 | `<길이>` | 시간 토큰 — `15fr`(30fps) · `0.5s` |
 | 종료 코드 | 0 됨 · 1 거절(파일은 그대로다) · 2 쓰는 법이 틀렸다 |
 
 ## 읽기
 
 ```
-$ st read 대본폴더 --line ln_k7inl2cm --kind acting
+$ st read 대본폴더 --line ln_k7inl2cm --kind expression
 ln_k7inl2cm · 하린 · Demo_Presentation · 119행
-  종류: 연기
+  종류: 표정
   start   "…"
   a       "…"
-      a/acting/0             +0s      face_swap  slot=s1 face=3 duration=13fr
+      a/expression/0         +0s      face_swap  slot=s1 face=3 duration=13fr
   b       "…"
-      b/acting/0             +0s      face_swap  slot=s1 face=05 duration=13fr
+      b/expression/0         +0s      face_swap  slot=s1 face=05 duration=13fr
   end
 ```
 

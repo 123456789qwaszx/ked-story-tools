@@ -6,7 +6,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 원본 | `ked-presentation-runtime` `dev` @ `417bf41e` (N5 옛 표기 걷기 `ebbde5ad` · 마무리 `417bf41e` — 그 앞의 K1 명세 표 `e5f81084` · K2 줄 읽기 `33c89805` · 종류 배정 확정 `c39986c2`를 담는다) |
+| 원본 | `ked-presentation-runtime` `dev` @ `fbb7e3a2` (표정 · 이모지를 연기에서 뗀 종류 `fbb7e3a2` · N5 옛 표기 걷기 `ebbde5ad` · 마무리 `417bf41e` — 그 앞의 K1 명세 표 `e5f81084` · K2 줄 읽기 `33c89805` · 종류 배정 확정 `c39986c2`를 담는다) |
 | 반입일 | 2026-11-22 |
 | 범위 | `Core/` 전부 — `Ease/` · `Emoji/` · `Motion/` · `Primitives/` · `Read/` · `Reduce/` · `Spec/` · `State/` · `Tokens/` · `Transforms/` · `Tuning/` 소스와 `Documentation~/` |
 | 제외 | `Tests/` · `*.meta` · `*.asmdef` |

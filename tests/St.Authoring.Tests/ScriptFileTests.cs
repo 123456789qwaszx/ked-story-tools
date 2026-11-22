@@ -40,7 +40,7 @@ public class ScriptFileTests
         string path = Temp("a.yarn", original);
 
         ScriptFile file = ScriptFile.Load(path);
-        EditOutcome outcome = LineEditor.Apply(file.Text, new SetValue(new CommandAddress("line:t1", "a", CommandKind.Acting, 0), "face", "07"));
+        EditOutcome outcome = LineEditor.Apply(file.Text, new SetValue(new CommandAddress("line:t1", "a", CommandKind.Expression, 0), "face", "07"));
         file.Save(outcome.Text);
 
         byte[] saved = File.ReadAllBytes(path);

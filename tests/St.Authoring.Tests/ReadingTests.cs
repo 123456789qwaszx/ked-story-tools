@@ -130,7 +130,8 @@ public class ReadingTests
         StoryScene market = ScriptLibrary.Open(StoryFolder()).Chapters[0].Scenes[0];
 
         Assert.Equal(new[] { "m3" }, Ids(market.Search(null, new HashSet<CommandKind> { CommandKind.Camera })));
-        Assert.Equal(new[] { "m1" }, Ids(market.Search(null, new HashSet<CommandKind> { CommandKind.Acting })));
+        Assert.Equal(new[] { "m1" }, Ids(market.Search(null, new HashSet<CommandKind> { CommandKind.Expression })));
+        Assert.Empty(market.Search(null, new HashSet<CommandKind> { CommandKind.Acting }));
         Assert.Equal(new[] { "m1", "m2" }, Ids(market.Search(null, null, "ch01_market_01")));
         Assert.Empty(market.Search("갈래", null, "ch01_market_01"));
     }
@@ -141,7 +142,9 @@ public class ReadingTests
         IReadOnlyList<LibraryLine> lines = ScriptLibrary.Open(StoryFolder()).Chapters[1].Scenes[0].Episodes[0].Lines;
 
         Assert.Equal(1, lines[0].Count(CommandKind.Placement));
-        Assert.Equal(4, lines[0].Count(CommandKind.Acting));
+        Assert.Equal(3, lines[0].Count(CommandKind.Expression));
+        Assert.Equal(1, lines[0].Count(CommandKind.Emoji));
+        Assert.Equal(0, lines[0].Count(CommandKind.Acting));
         Assert.Equal(0, lines[0].Count(CommandKind.Camera));
         Assert.True(lines[0].Editable);
         Assert.False(lines[1].Editable);
@@ -192,12 +195,12 @@ public class ReadingTests
     [Fact]
     public void 고르지_않은_종류는_수로만_남는다()
     {
-        OutlineStep step = Outline("t1", new HashSet<CommandKind> { CommandKind.Acting }).Steps[0];
+        OutlineStep step = Outline("t1", new HashSet<CommandKind> { CommandKind.Expression }).Steps[0];
 
         Assert.Equal(new[] { "face" }, step.Commands.Select(c => c.Name));
         Assert.Equal(0.5f, step.Commands[0].Delay, 3);
         Assert.Equal(1, step.Others[CommandKind.Placement]);
-        Assert.Equal("t1/in/acting/0", step.Commands[0].Address.ToString());
+        Assert.Equal("t1/in/expression/0", step.Commands[0].Address.ToString());
     }
 
     [Fact]

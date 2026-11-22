@@ -202,7 +202,7 @@ public class TimelineTests
             (MainWindow window, string path) = Open();
 
             Assert.Null(window.DragBar("t1/in/placement/0", 0f));
-            Assert.Null(window.DragBar("t1/in/acting/0", 0.5f, end: true));
+            Assert.Null(window.DragBar("t1/in/expression/0", 0.5f, end: true));
             Assert.Null(window.DragAnchor("in", 1f));
             Assert.Equal(Script, File.ReadAllText(path));
             window.Close();
@@ -233,7 +233,7 @@ public class TimelineTests
         {
             (MainWindow window, _) = Open();
 
-            window.SetKinds(CommandKind.Acting);
+            window.SetKinds(CommandKind.Expression, CommandKind.Acting);
 
             Assert.Equal(new[] { "face", "face_swap", "motion" }, window.ShownTimeline!.Bars.Select(b => b.Name));
             window.Close();
@@ -260,14 +260,14 @@ public class TimelineTests
             window.SelectLine("t1");
             Assert.Null(window.ShownMotion);
 
-            Assert.True(window.SelectCommand("t1/start/acting/1"));
+            Assert.True(window.SelectCommand("t1/start/acting/0"));
 
             Assert.Equal("hop", window.ShownMotion!.Clip.Name);
             Assert.Equal(2, window.ShownMotion.Curves.Count);
             RenderShots.Save(window, "k6-1-motion");
 
             // 모션이 아닌 것을 고르면 걷힌다.
-            window.SelectCommand("t1/start/acting/0");
+            window.SelectCommand("t1/start/expression/0");
             Assert.Null(window.ShownMotion);
             window.Close();
         });

@@ -19,7 +19,7 @@ namespace St.App;
 /// </summary>
 public partial class MainWindow : Window
 {
-    /// <summary>종류 필터에 오르는 넷 — 차례가 단추의 차례다.</summary>
+    /// <summary>종류 필터에 오르는 연출가의 종류(여섯) — 차례가 단추의 차례다.</summary>
     internal static readonly CommandKind[] DirectorKinds = CommandKinds.All.Where(CommandKinds.IsDirectorKind).ToArray();
 
     private readonly string _settingsPath;

@@ -36,6 +36,6 @@ public class CommandAddressTests
 
         Assert.Equal("t1/in/placement/0", CommandAddress.Of(line, line.Step("in").Commands[0])?.ToString());
         Assert.Equal("t1/in/time/0", CommandAddress.Of(line, line.Step("in").Commands[1])?.ToString());
-        Assert.Equal("t1/in/acting/0", CommandAddress.Of(line, line.Step("in").Commands[2])?.ToString());
+        Assert.Equal("t1/in/expression/0", CommandAddress.Of(line, line.Step("in").Commands[2])?.ToString());
     }
 }

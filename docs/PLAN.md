@@ -62,12 +62,13 @@
 | D10 | 풀어 고친 줄의 모션은 **그 편의 `<대본 이름>.motions.json`(`motions/2`)에 둔다** — 대본은 그 이름을 가리킨다. 런타임의 형식은 바꾸지 않는다(2026-11-22) |
 | D11 | 고친 결과는 **Unity에서 본다** — D6을 지킨다. 툴은 그래프와 키만 고친다(2026-11-22) |
 | D12 | 그래프 에디터는 **characterRig에서 공유 라이브러리로 떼어** 두 툴이 같이 쓴다(2026-11-22) |
+| D13 | **표정과 이모지를 연기에서 떼어 제 종류로 둔다**(2026-11-22) — 표정(`expression` — `face` · `face_swap`) · 이모지(`emoji` — `emoji` · `emoji_off`). 연기에는 `pose` · `motion` · `char_*_to`가 남는다. 연출가의 종류는 여섯이 된다(카메라 · 자리와 구도 · 표정 · 연기 · 이모지 · 화면). 연출 참고집에 감정 아이콘 카드가 따로 쌓였고, 표정은 몸짓과 따로 고친다. 런타임 명세 표가 정본이다 — 런타임 `docs/PLAN_command-spec.md` C4 |
 
 ### 2.2 제안 — 확인 받을 것
 
 | # | 제안 | 까닭 |
 |---|---|---|
-| P1 | 종류는 일곱 — 연출가의 넷(카메라 · 자리와 구도 · 연기 · 화면)에 세우기 · 소리 · 시간 | 모든 커맨드가 정확히 한 종류를 가져야 시험으로 지킬 수 있다. 필터에 오르는 것은 위 넷 |
+| P1 | 종류는 일곱 — 연출가의 넷(카메라 · 자리와 구도 · 연기 · 화면)에 세우기 · 소리 · 시간(D13 뒤로 아홉 — 연출가의 여섯) | 모든 커맨드가 정확히 한 종류를 가져야 시험으로 지킬 수 있다. 필터에 오르는 것은 위 넷 |
 | P3 | 타임라인은 **툴의 화면**이다 — 줄 읽기의 결과에서 계산해 그리고, 끌어 고친 것은 `pause` · `<<gap>>` · 길이 인자로 적는다. 프레임을 저장하지 않고 런타임은 바뀌지 않는다(§4.6 · §6) | D7이 타임라인을 꼽았다. 런타임의 타임라인을 두지 않는다는 결정(§1.4)과 부딪치지 않는 자리가 여기다 |
 | P4 | 줄 고치기의 조작은 다섯 — 값 바꾸기 · 커맨드 더하기 · 빼기 · 지연 바꾸기 · 간격 바꾸기. 앵커를 새로 만들거나 옮기는 일은 뺀다 | 표지는 대사 글 안에 있다 — 글을 건드리는 조작은 따로 정한다 |
 
@@ -142,7 +143,9 @@ K4를 시작하며 정한 것(소유자가 제안대로 — 2026-11-22):
 |---|---|---|
 | 카메라 | `shot_zoom` · `shot_pan` · `shot_focus` · `shot_track` · `shot_dolly` · `shot_roll` · `shot_reset` · `shot_reset_all` · `shot_shake` | 9 |
 | 자리와 구도 | `place` · `move_by` · `move_reset` · `rotate_by` · `rotate_reset` · `slide_in` · `slide_out` · `fade_in` · `fade_out` · `fade` · `focus_move` · `focus_rotate` · `focus_scale` · `focus_reset` · `size` · `size_reset` · `mirror` · `sibling_front` · `sibling_back` · `char_visual` · `char_visual_*` 일곱 | 27 |
-| 연기 | `face` · `face_swap` · `pose` · `motion` · `emoji` · `emoji_off` · `char_move_to` · `char_scale_to` · `char_rotate_to` | 9 |
+| 표정 (D13) | `face` · `face_swap` | 2 |
+| 연기 | `pose` · `motion` · `char_move_to` · `char_scale_to` · `char_rotate_to` (D13 앞에는 표정 · 이모지의 넷도 여기였다) | 5 |
+| 이모지 (D13) | `emoji` · `emoji_off` | 2 |
 | 화면 | `screen_cover` · `screen_flash` · `screen_vignette` · `screen_noise`(각 `_clear`) · `stage_mask` · `stage_blur` · `stage_dim`(각 `_reset`) · `depth_focus_on` · `depth_focus_clear` · `cutin_open` · `cutin_close` · `popup` · `popup_close` · `bg_sprite` · `bg_fade_in` · `bg_fade_out` · `bg_move` · `bg_scale` | 25 |
 | 세우기 | `slot` · `cast` · `actor` · `bg_spawn` · `portrait` · `portrait_close` | 6 |
 | 소리 | `bgm` · `stop_bgm` · `sfx` · `stop_all_sfx` · `voice` · `stop_voice` | 6 |
@@ -207,7 +210,7 @@ yarn 원문과 LineId를 받아 그 줄을 돌려준다.
 | | |
 |---|---|
 | 조작 | `SetValue`(주소 · 칸 · 값 — null이면 비운다) · `AddCommand`(LineId · 앵커 · 이름 · 인자 · 순번) · `RemoveCommand`(주소) · `SetDelay`(주소 · 길이) · `SetGap`(LineId · 앵커 · 길이) |
-| 주소 | `CommandAddress`(LineId · 앵커 · 종류 · 순번) — 글로는 `ln_abc/start/acting/0` |
+| 주소 | `CommandAddress`(LineId · 앵커 · 종류 · 순번) — 글로는 `ln_abc/start/expression/0` |
 | 한 조작 = 한 줄 | 조작 하나는 묶음의 물리적인 줄 하나를 고치거나(`<<…>>` 안만 — 들여쓰기 · 줄 끝 주석 · 줄바꿈은 그대로) 넣거나 뺀다. 묶음의 다른 줄도 바뀌지 않는다 |
 | 쓰기 전 검사 | 고친 글을 줄 읽기로 다시 읽는다 — ① 새 문제가 생기면 ② 다른 줄의 읽기가 달라지면 ③ 읽은 값이 고친 값과 다르면 거절한다. 코어에 원문 검사 함수가 따로 없어 줄 읽기의 문제 목록(AR6 · AR7 · AR10을 적는다)을 고치기 전과 견준다. 커맨드가 남지 않은 표지만 경고로 받아들인다(AR7) |
 | 지연 | 그 커맨드 바로 앞의 `pause`를 넣거나 · 고치거나 · 뺀다. 더 앞선 기다림보다 당길 수 없다. `pause`는 뒤 커맨드를 모두 붙잡으므로 **그 뒤의 커맨드도 같은 만큼 움직인다** |
@@ -273,7 +276,7 @@ yarn 원문과 LineId를 받아 그 줄을 돌려준다.
 | | |
 |---|---|
 | 어디서 | 가운데에서 앵커(스텝의 머리)를 누르면 오른쪽의 간격 아래에 "○○에 더하기"가 선다. 커맨드가 없는 줄 · 앵커에도 더한다 |
-| 종류 | 연출가의 넷에서 고른다 — 그 종류의 어휘와 카드만 보인다(§1.2의 "한 종류로 좁힌 카탈로그") |
+| 종류 | 연출가의 종류에서 고른다 — 그 종류의 어휘와 카드만 보인다(§1.2의 "한 종류로 좁힌 카탈로그") |
 | 커맨드 | 명세 표에서 그 종류의 커맨드(바로 실행하는 명령은 빠진다). 고르면 칸이 서고, 채워서 "넣기" |
 | 카드 | 위의 "카드 폴더…"로 작업공간 `catalog/`(cards.json · kinds.json)를 고른다 — 대본마다 기억한다(U3). 카드를 고르면 의도 · 언제 · 본보기의 줄이 보이고, 그 카드의 커맨드가 칸이 채워진 채로 선다. 채울 자리(`<표정>` · `<인물>`)는 비어 있고 채워야 들어간다. 슬롯은 줄마다 다르므로 넣기 전에 고친다 |
 | 묶음 | 카드의 본보기는 대사 줄마다 끊긴다 — 묶음이 여럿인 카드(줄 머리 · 말이 꺾이는 대목, 여는 줄 · 닫는 줄)는 하나를 골라 넣는다 |

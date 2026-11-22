@@ -471,7 +471,7 @@ public static partial class LineEditor
             if (kindIndex < 0 || kindIndex > sameKind.Count)
             {
                 throw new Refusal(
-                    $"순번 {kindIndex}에 끼울 수 없다 — 앵커 '{edit.Anchor}'의 {CommandKinds.Label(spec.Kind)}은 {sameKind.Count}개다(0 ~ {sameKind.Count})");
+                    $"순번 {kindIndex}에 끼울 수 없다 — 앵커 '{edit.Anchor}'의 {CommandKinds.Label(spec.Kind)} 커맨드는 {sameKind.Count}개다(0 ~ {sameKind.Count})");
             }
 
             at = kindIndex < sameKind.Count ? sameKind[kindIndex].Line : EndOfAnchor(line, step, block, anchors, edit.Anchor);
@@ -657,7 +657,7 @@ public static partial class LineEditor
         if (command is null)
         {
             int count = step.Commands.Count(c => c.Spec?.Kind == address.Kind);
-            throw new Refusal($"{address}가 없다 — 앵커 '{address.Anchor}'의 {CommandKinds.Label(address.Kind)}은 {count}개다");
+            throw new Refusal($"{address}가 없다 — 앵커 '{address.Anchor}'의 {CommandKinds.Label(address.Kind)} 커맨드는 {count}개다");
         }
 
         return command;

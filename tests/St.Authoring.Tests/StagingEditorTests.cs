@@ -5,7 +5,7 @@ namespace St.Authoring.Tests;
 
 public class StagingEditorTests
 {
-    private static readonly CommandAddress FaceSwap = new("line:t1", "a", CommandKind.Acting, 0);
+    private static readonly CommandAddress FaceSwap = new("line:t1", "a", CommandKind.Expression, 0);
 
     [Fact]
     public void 조작_하나가_되돌리기_한_칸이다()

@@ -34,7 +34,7 @@ public class EditingTests
         {
             (MainWindow window, string path) = Open();
 
-            Assert.True(window.SelectCommand("t1/a/acting/0"));
+            Assert.True(window.SelectCommand("t1/a/expression/0"));
             Assert.Equal(new[] { "지연", "슬롯", "표정", "길이" }, window.InspectorFields);
             RenderShots.Save(window, "k4-2-command");
 
@@ -43,7 +43,7 @@ public class EditingTests
             // 그 줄 하나만 바뀐다 — 줄 끝의 카드 출처는 그대로다.
             Assert.Equal(Script.Replace("face_swap s2 03", "face_swap s2 07"), File.ReadAllText(path));
             Assert.Equal("07", window.ShownOutline!.Steps[2].Commands[0].Args[1].Value);
-            Assert.Equal("t1/a/acting/0", window.PickedCommand?.ToString());
+            Assert.Equal("t1/a/expression/0", window.PickedCommand?.ToString());
             Assert.Null(window.EditMessage);
             window.Close();
         });
@@ -55,7 +55,7 @@ public class EditingTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, string path) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
 
             Assert.True(window.EditField("길이", "20fr"));
             Assert.Contains("<<at a face_swap s2 03 20fr>> // card:E04", File.ReadAllText(path));
@@ -90,16 +90,16 @@ public class EditingTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, string path) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
 
             Assert.True(window.EditField("지연", "12fr"));
 
             Assert.Contains("<<at a pause 12fr>>\n<<at a face_swap s2 03>> // card:E04", File.ReadAllText(path));
             Assert.Equal(0.4f, window.ShownOutline!.Steps[2].Commands[0].Delay, 3);
-            Assert.Equal("t1/a/acting/0", window.PickedCommand?.ToString());
+            Assert.Equal("t1/a/expression/0", window.PickedCommand?.ToString());
 
             // 앞에 이미 기다림이 있는 커맨드 — 그 길이를 고친다. 비우면 0이다.
-            window.SelectCommand("t1/in/acting/0");
+            window.SelectCommand("t1/in/expression/0");
             Assert.True(window.EditField("지연", "1s"));
             Assert.Contains("<<at in pause 1s>>", File.ReadAllText(path));
             Assert.True(window.EditField("지연", string.Empty));
@@ -155,7 +155,7 @@ public class EditingTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, string path) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
 
             Assert.True(window.EditField("길이", "빠르게"));
 
@@ -180,7 +180,7 @@ public class EditingTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, string path) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
             window.EditField("표정", "07");
             window.EditField("지연", "12fr");
 
@@ -221,7 +221,7 @@ public class EditingTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, string path) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
             window.EditField("표정", "07");
 
             File.WriteAllText(path, Script.Replace("motion s2 nod", "motion s2 bow"));
@@ -241,7 +241,7 @@ public class EditingTests
         HeadlessUi.Run(() =>
         {
             (MainWindow window, _) = Open();
-            window.SelectCommand("t1/a/acting/0");
+            window.SelectCommand("t1/a/expression/0");
 
             window.SetKinds(CommandKind.Camera);
 

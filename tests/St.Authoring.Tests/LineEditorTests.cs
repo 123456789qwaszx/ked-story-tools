@@ -53,19 +53,19 @@ public class LineEditorTests
     [Fact]
     public void 값_바꾸기는_그_줄의_인자만_바꾸고_줄_끝_주석을_지킨다()
     {
-        EditOutcome outcome = Ok(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Acting, 0), "face", "07"));
+        EditOutcome outcome = Ok(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Expression, 0), "face", "07"));
 
         Assert.True(outcome.Changed);
         Assert.Contains("<<at a face_swap s2 07 13fr>> // 줄 끝 주석\n", outcome.Text);
         OneLineDiffers(Scripts.Sample, outcome.Text, "<<at a face_swap s2 03 13fr>> // 줄 끝 주석", "<<at a face_swap s2 07 13fr>> // 줄 끝 주석");
-        Assert.Equal(At("t1", "a", CommandKind.Acting, 0), outcome.Target);
+        Assert.Equal(At("t1", "a", CommandKind.Expression, 0), outcome.Target);
         Assert.Equal("07", Scripts.Read(outcome.Text, "t1").Step("a").Commands[0].Bound[1].Value);
     }
 
     [Fact]
     public void 같은_값으로_고치면_바뀌지_않는다()
     {
-        EditOutcome written = Ok(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Acting, 0), "face", "03"));
+        EditOutcome written = Ok(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Expression, 0), "face", "03"));
         Assert.False(written.Changed);
         Assert.Equal(Scripts.Sample, written.Text);
 
@@ -106,7 +106,7 @@ public class LineEditorTests
     [Fact]
     public void 칸을_비우면_맨_뒤의_적은_칸이_사라진다()
     {
-        EditOutcome outcome = Ok(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Acting, 0), "duration", null));
+        EditOutcome outcome = Ok(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Expression, 0), "duration", null));
 
         Assert.Equal("<<at a face_swap s2 03>> // 줄 끝 주석", outcome.Added);
         Assert.Equal("13fr", Scripts.Read(outcome.Text, "t1").Step("a").Commands[0].Bound[2].Value);
@@ -115,7 +115,7 @@ public class LineEditorTests
     [Fact]
     public void 꼭_적는_칸은_비우지_않는다()
     {
-        string error = Refused(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Acting, 0), "slot", null));
+        string error = Refused(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Expression, 0), "slot", null));
         Assert.Contains("slot", error);
     }
 
@@ -139,13 +139,13 @@ public class LineEditorTests
     [InlineData("face", "x>>")]
     [InlineData("없는칸", "1")]
     public void 읽지_못할_값과_없는_칸은_거절한다(string arg, string value)
-        => Refused(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Acting, 0), arg, value));
+        => Refused(Scripts.Sample, new SetValue(At("t1", "a", CommandKind.Expression, 0), arg, value));
 
     [Fact]
     public void 고를_수_있는_낱말이_정해진_칸은_그_낱말만_받는다()
     {
         string text = Ok(Scripts.Sample, new AddCommand("t1", "start", "motion", ["s1", "nod"])).Text;
-        CommandAddress motion = At("t1", "start", CommandKind.Acting, 1);
+        CommandAddress motion = At("t1", "start", CommandKind.Acting, 0);
 
         Refused(text, new SetValue(motion, "mode", "sideways"));
         Assert.Equal("<<at start motion s1 nod absolute>>", Ok(text, new SetValue(motion, "mode", "absolute")).Added);
@@ -228,7 +228,7 @@ public class LineEditorTests
     [Fact]
     public void 빼기는_그_줄_하나만_지운다()
     {
-        EditOutcome outcome = Ok(Scripts.Sample, new RemoveCommand(At("t1", "in", CommandKind.Acting, 0)));
+        EditOutcome outcome = Ok(Scripts.Sample, new RemoveCommand(At("t1", "in", CommandKind.Expression, 0)));
 
         OneLineDiffers(Scripts.Sample, outcome.Text, "<<at in face s2 05>>", null);
         Assert.Null(outcome.Target);
@@ -239,7 +239,7 @@ public class LineEditorTests
     public void 표지의_마지막_커맨드를_빼면_알리고_받아들인다()
     {
         // 표지는 대사 글의 것이라 이 툴이 지우지 못한다 — 원문 검사에서 경고다(AR7).
-        EditOutcome outcome = Ok(Scripts.Sample, new RemoveCommand(At("t1", "a", CommandKind.Acting, 0)));
+        EditOutcome outcome = Ok(Scripts.Sample, new RemoveCommand(At("t1", "a", CommandKind.Expression, 0)));
 
         Assert.Single(outcome.Warnings);
         Assert.Contains("[beat=a/]", outcome.Warnings[0]);
@@ -249,10 +249,10 @@ public class LineEditorTests
     [Fact]
     public void 없는_주소는_거절한다()
     {
-        Refused(Scripts.Sample, new RemoveCommand(At("t1", "a", CommandKind.Acting, 1)));
+        Refused(Scripts.Sample, new RemoveCommand(At("t1", "a", CommandKind.Expression, 1)));
         Refused(Scripts.Sample, new RemoveCommand(At("t1", "a", CommandKind.Camera, 0)));
-        Refused(Scripts.Sample, new RemoveCommand(At("t1", "b", CommandKind.Acting, 0)));
-        Refused(Scripts.Sample, new RemoveCommand(At("없는줄", "a", CommandKind.Acting, 0)));
+        Refused(Scripts.Sample, new RemoveCommand(At("t1", "b", CommandKind.Expression, 0)));
+        Refused(Scripts.Sample, new RemoveCommand(At("없는줄", "a", CommandKind.Expression, 0)));
     }
 
     // ── 지연 바꾸기 ─────────────────────────────────────────────────────────
@@ -260,11 +260,11 @@ public class LineEditorTests
     [Fact]
     public void 지연을_주면_그_커맨드_앞에_pause가_선다()
     {
-        EditOutcome outcome = Ok(Scripts.Sample, new SetDelay(At("t1", "a", CommandKind.Acting, 0), "12fr"));
+        EditOutcome outcome = Ok(Scripts.Sample, new SetDelay(At("t1", "a", CommandKind.Expression, 0), "12fr"));
 
         Assert.Contains("<<at a pause 12fr>>\n<<at a face_swap s2 03 13fr>> // 줄 끝 주석\n", outcome.Text);
         OneLineDiffers(Scripts.Sample, outcome.Text, null, "<<at a pause 12fr>>");
-        Assert.Equal(At("t1", "a", CommandKind.Acting, 0), outcome.Target);
+        Assert.Equal(At("t1", "a", CommandKind.Expression, 0), outcome.Target);
         Assert.Equal(0.4f, outcome.Line!.Step("a").Commands[1].Delay, 3);
     }
 
@@ -272,7 +272,7 @@ public class LineEditorTests
     public void 앞에_pause가_있으면_그_길이를_고친다()
     {
         // in: fade_out · pause 15fr · face — face의 지연은 0.5초다.
-        EditOutcome outcome = Ok(Scripts.Sample, new SetDelay(At("t1", "in", CommandKind.Acting, 0), "0.8s"));
+        EditOutcome outcome = Ok(Scripts.Sample, new SetDelay(At("t1", "in", CommandKind.Expression, 0), "0.8s"));
 
         OneLineDiffers(Scripts.Sample, outcome.Text, "<<at in pause 15fr>>", "<<at in pause 0.8s>>");
         Assert.Equal(0.8f, outcome.Line!.Step("in").Commands[2].Delay, 3);
@@ -281,18 +281,18 @@ public class LineEditorTests
     [Fact]
     public void 지연을_0으로_하면_앞의_pause를_뺀다()
     {
-        EditOutcome outcome = Ok(Scripts.Sample, new SetDelay(At("t1", "in", CommandKind.Acting, 0), "0fr"));
+        EditOutcome outcome = Ok(Scripts.Sample, new SetDelay(At("t1", "in", CommandKind.Expression, 0), "0fr"));
 
         OneLineDiffers(Scripts.Sample, outcome.Text, "<<at in pause 15fr>>", null);
-        Assert.Equal(At("t1", "in", CommandKind.Acting, 0), outcome.Target);
+        Assert.Equal(At("t1", "in", CommandKind.Expression, 0), outcome.Target);
         Assert.Equal(0f, outcome.Line!.Step("in").Commands[1].Delay, 3);
     }
 
     [Fact]
     public void 같은_지연이면_바뀌지_않는다()
     {
-        Assert.False(Ok(Scripts.Sample, new SetDelay(At("t1", "in", CommandKind.Acting, 0), "0.5s")).Changed);
-        Assert.False(Ok(Scripts.Sample, new SetDelay(At("t1", "a", CommandKind.Acting, 0), "0s")).Changed);
+        Assert.False(Ok(Scripts.Sample, new SetDelay(At("t1", "in", CommandKind.Expression, 0), "0.5s")).Changed);
+        Assert.False(Ok(Scripts.Sample, new SetDelay(At("t1", "a", CommandKind.Expression, 0), "0s")).Changed);
     }
 
     [Fact]
@@ -402,7 +402,7 @@ public class LineEditorTests
 
     public static IEnumerable<object[]> DemoEdits()
     {
-        CommandAddress a = At(Scripts.DemoLine, "a", CommandKind.Acting, 0);
+        CommandAddress a = At(Scripts.DemoLine, "a", CommandKind.Expression, 0);
 
         yield return [new SetValue(a, "face", "07")];
         yield return [new AddCommand(Scripts.DemoLine, "end", "emoji", ["s1", "star"])];

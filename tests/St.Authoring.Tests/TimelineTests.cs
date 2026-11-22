@@ -62,7 +62,7 @@ public class TimelineTests
         Assert.Null(face.Duration);
         Assert.False(face.Resizable);
 
-        Assert.Equal("t1/a/acting/0", timeline.Bars[3].Address.ToString());
+        Assert.Equal("t1/a/expression/0", timeline.Bars[3].Address.ToString());
     }
 
     [Fact]
@@ -138,12 +138,12 @@ public class TimelineTests
         LineRead line = Scripts.Read(Scripts.Sample, "t1");
 
         // in의 face(지연 0.5초)를 0.81초로 — 가장 가까운 프레임(24fr)이다.
-        string moved = Apply(Scripts.Sample, TimelineEdits.MoveBar(line, At("in", CommandKind.Acting, 0), 0.81f, alone: false));
+        string moved = Apply(Scripts.Sample, TimelineEdits.MoveBar(line, At("in", CommandKind.Expression, 0), 0.81f, alone: false));
         Assert.Contains("<<at in pause 24fr>>\n<<at in face s2 05>>", moved);
 
         // 같은 자리로 끌면 할 일이 없다.
-        Assert.Empty(TimelineEdits.MoveBar(line, At("in", CommandKind.Acting, 0), 0.5f, alone: false));
-        Assert.Empty(TimelineEdits.MoveBar(line, At("in", CommandKind.Acting, 9), 1f, alone: false));
+        Assert.Empty(TimelineEdits.MoveBar(line, At("in", CommandKind.Expression, 0), 0.5f, alone: false));
+        Assert.Empty(TimelineEdits.MoveBar(line, At("in", CommandKind.Expression, 9), 1f, alone: false));
     }
 
     [Fact]
@@ -194,11 +194,11 @@ public class TimelineTests
     {
         LineRead line = Scripts.Read(Scripts.Sample, "t1");
 
-        string resized = Apply(Scripts.Sample, [TimelineEdits.ResizeBar(line, At("a", CommandKind.Acting, 0), 0.66f)]);
+        string resized = Apply(Scripts.Sample, [TimelineEdits.ResizeBar(line, At("a", CommandKind.Expression, 0), 0.66f)]);
         Assert.Contains("<<at a face_swap s2 03 20fr>>", resized);
 
         // 길이 칸이 없는 커맨드와 같은 길이는 할 일이 없다.
-        Assert.Null(TimelineEdits.ResizeBar(line, At("end", CommandKind.Acting, 0), 1f));
+        Assert.Null(TimelineEdits.ResizeBar(line, At("end", CommandKind.Emoji, 0), 1f));
         Assert.Null(TimelineEdits.ResizeBar(line, At("in", CommandKind.Placement, 0), 0.5f));
     }
 

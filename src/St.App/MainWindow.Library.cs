@@ -35,7 +35,7 @@ public partial class MainWindow
     /// <summary>목록의 에피소드 머리 — 그 아래에 그 에피소드의 줄이 선다.</summary>
     private sealed record EpisodeHeader(StoryEpisode Episode, int Total, bool Collapsed);
 
-    /// <summary>종류 필터에서 켜진 종류. 처음에는 넷 모두다.</summary>
+    /// <summary>종류 필터에서 켜진 종류. 처음에는 모두 켜져 있다.</summary>
     internal IReadOnlySet<CommandKind> Kinds
         => _kindButtons.Where(b => b.Value.IsChecked == true).Select(b => b.Key).ToHashSet();
 
@@ -98,7 +98,8 @@ public partial class MainWindow
             },
             supportsRecycling: false);
 
-        StackPanel kinds = new() { Orientation = Orientation.Horizontal, Spacing = 4 };
+        // 종류가 여섯이라 왼쪽 칸이 좁으면 다음 줄로 넘긴다.
+        WrapPanel kinds = new() { Orientation = Orientation.Horizontal, ItemSpacing = 4, LineSpacing = 4 };
 
         foreach (CommandKind kind in DirectorKinds)
         {
