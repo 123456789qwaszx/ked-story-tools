@@ -14,7 +14,7 @@ public class MainWindowTests
         "<<at in fade_out s1 15fr>>\n<<at in pause 15fr>>\n<<at in face s2 05>>\n<<gap in 1s>>\n" +
         "<<at start shot_zoom 1.2 0.4s>>\n<<at a face_swap s2 03>>\n<<at a bgm theme>>\n<<at end emoji s2 star>>\n" +
         "가: [beat=in/]하나 [beat=a/]둘 [beat=b/]셋 #line:t1\n\n" +
-        "<<fade_in s1 10fr>>\n나: 옛 표기 #line:t2\n===\n\n" +
+        "<<at start fade_in s1 10fr>>\n<<fade_out s2 10fr>>\n나: 실행되지 않는 명령 #line:t2\n===\n\n" +
         "// 에피소드: 갈래\ntitle: ch01_stage_01a\n---\n다: 커맨드가 없는 줄 #line:t3\n===\n";
 
     private const string Lobby =
@@ -120,7 +120,7 @@ public class MainWindowTests
         {
             MainWindow window = Open(Folder());
 
-            window.SearchFor("옛");
+            window.SearchFor("실행되지");
             Assert.Equal(new[] { "t2" }, window.ListedLines.Select(l => l.Id));
 
             window.SearchFor(string.Empty);
@@ -165,7 +165,7 @@ public class MainWindowTests
 
             Assert.True(window.SelectLine("t2"));
             Assert.False(window.ShownOutline!.Editable);
-            Assert.Contains("옛 표기", window.ShownOutline.ReadOnlyReason);
+            Assert.Contains("at 없는 명령", window.ShownOutline.ReadOnlyReason);
             RenderShots.Save(window, "k4-1-readonly");
             window.Close();
         });
@@ -179,7 +179,7 @@ public class MainWindowTests
             MainWindow window = Open(Folder());
             window.SelectLine("t1");
 
-            window.SearchFor("옛");
+            window.SearchFor("실행되지");
 
             Assert.Null(window.ShownOutline);
             Assert.False(window.SelectLine("t1"));

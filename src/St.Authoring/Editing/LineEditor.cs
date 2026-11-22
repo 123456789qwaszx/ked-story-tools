@@ -13,7 +13,8 @@ namespace St.Authoring.Editing;
 ///   ② 쓰기 전에 고친 글을 줄 읽기로 다시 읽는다 — 새 문제가 생기거나 다른 줄의 읽기가 달라지면 거절한다.
 ///   ③ 다시 읽은 값이 고치려던 값과 같아야 한다.
 ///
-/// 새 표기(<c>&lt;&lt;at&gt;&gt;</c> · <c>&lt;&lt;gap&gt;&gt;</c>)만 쓴다 — 옛 표기(<c>&lt;&lt;step&gt;&gt;</c> · at 없는 명령)가 든 줄은 읽기만 한다.
+/// 새 표기(<c>&lt;&lt;at&gt;&gt;</c> · <c>&lt;&lt;gap&gt;&gt;</c>)만 쓴다 — 묶음에 at 없는 명령(걷힌 <c>&lt;&lt;step&gt;&gt;</c>도 그 하나다)이 든 줄은
+/// 읽기만 한다. 그 명령은 실행되지 않는다(런타임 N5) — 앵커를 붙일지 지울지는 원문에서 정한다.
 /// 조작 하나는 묶음의 한 줄을 고치거나 · 넣거나 · 뺀다.
 /// </summary>
 public static partial class LineEditor
@@ -186,7 +187,12 @@ public static partial class LineEditor
         return highest == 0 ? cardId : string.Create(CultureInfo.InvariantCulture, $"{cardId}#{highest + 1}");
     }
 
-    /// <summary>이 줄을 고칠 수 있는가 — LineId가 있고 옛 표기가 없어야 한다. 아니면 까닭을 돌려준다.</summary>
+    /// <summary>
+    /// 이 줄을 고칠 수 있는가 — LineId가 있고 묶음에 at 없는 명령(<see cref="LineRead.Unanchored"/>)이 없어야 한다.
+    /// 아니면 까닭을 돌려준다. at 없는 명령은 실행되지 않는다(런타임 N5 — 원문 검사의 오류). 이 툴은 묶음의 한 줄씩 고치므로
+    /// 그 명령은 고친 뒤에도 남는다 — 실행되게 할지(앵커를 붙인다) 지울지는 원문에서 정한다. 까닭에는 명령의 이름을 적는다
+    /// (화면은 그 명령을 그리지 않는다 — 실행되지 않으므로). 노드 끝의 것(암묵 스텝)은 어느 줄에도 속하지 않는다.
+    /// </summary>
     public static bool IsEditable(LineRead line, out string reason)
     {
         ArgumentNullException.ThrowIfNull(line);
@@ -197,9 +203,12 @@ public static partial class LineEditor
             return false;
         }
 
-        if (line.LegacySteps > 0 || line.BareCommands > 0)
+        if (line.Unanchored.Count > 0)
         {
-            reason = $"옛 표기가 든 줄이다(<<step>> {line.LegacySteps}개 · at 없는 명령 {line.BareCommands}개) — 읽기만 한다";
+            string names = string.Join(" · ", line.Unanchored.Select(c => c.Name));
+            reason = string.Create(
+                CultureInfo.InvariantCulture,
+                $"at 없는 명령이 든 줄이다({line.Unanchored.Count}개 — {names}) — 실행되지 않는다. 원문에서 앵커를 붙이거나(at start) 지운 뒤에 고친다");
             return false;
         }
 

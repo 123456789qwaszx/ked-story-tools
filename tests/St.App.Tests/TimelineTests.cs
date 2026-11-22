@@ -15,7 +15,7 @@ public class TimelineTests
         "<<at start move_by s1 1u 0u 30fr>>\n<<at start fade_in s1 15fr>>\n<<at start shot_zoom 1.2 0.4s>>\n" +
         "<<at a face_swap s2 03>>\n<<at a motion s2 nod>>\n" +
         "가: [beat=in/]하나 둘 셋 넷 [beat=a/]다섯 여섯 #line:t1\n\n" +
-        "<<fade_in s1 10fr>>\n나: 옛 표기 #line:t2\n===\n";
+        "<<at start fade_in s1 10fr>>\n<<fade_out s2 10fr>>\n나: 실행되지 않는 명령 #line:t2\n===\n";
 
     private static readonly CommandKind[] Tracks = MainWindow.DirectorKinds;
 

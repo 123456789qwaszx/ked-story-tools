@@ -1,7 +1,7 @@
 # 런타임 세션에 넘기는 일 — K1 · K2 · K5 · N5
 
 2026-11-22 · 저장소: ked-presentation-runtime · 설계: ked-story-tools `docs/PLAN.md`
-상태: **K1 · K2 끝(2026-11-22)** — 런타임 `dev`에 있다(Unity 확인 · 종류 배정 확정). 한 것과 정한 것은 런타임 `docs/PLAN_command-spec.md`. 남은 것: K5 · N5.
+상태: **K1 · K2 · N5 끝(2026-11-22)** — 런타임 `dev`에 있다(Unity 확인 · 종류 배정 확정 · N5는 `ebbde5ad` · `417bf41e`). 한 것과 정한 것은 런타임 `docs/PLAN_command-spec.md` · `docs/PLAN_line-anchor.md` §12(「N5에서 한 것」) · `docs/stage-changes-handoff.md` §5. 남은 것: K5.
 읽을 것: 그 계획서 §4.1 · §4.2 · §5 → 이 저장소의 `docs/PLAN_line-anchor.md`(§5 · §11 · §12) · `docs/PLAN_rig-layers.md`(§4).
 
 ## 0. 왜
@@ -46,7 +46,11 @@ yarn 원문과 LineId를 받아 그 줄의 스텝 목록을 돌려주는 코어�
 
 통로(파일 · 소켓)는 그때 정한다. yarn의 반영은 새 장치가 필요 없다 — 되감기 때 `DialogueRunner`가 고친 `YarnProject`로 새로 시작한다.
 
-## 5. N5 — 옛 표기를 걷는다 (맨 뒤)
+## 5. N5 — 옛 표기를 걷는다 (맨 뒤) — 끝(2026-11-22)
+
+런타임 `dev` `ebbde5ad` · `417bf41e`. 대사 줄 앞의 at 없는 명령은 오류를 남기고 실행하지 않는다(노드 끝의 것은 암묵 스텝), `<<step>>`은 등록이 없다,
+명세 표 JSON의 `legacyStructure`를 걷었다, 데모 대본의 대사 줄 116개 모두 LineId가 있다(계획서 U4). 이 저장소는 코어 사본을 다시 들이고
+줄 고치기를 `LineRead.Unanchored`로 막았다(`story-tools.md` §16). 아래는 시작 전에 적은 조건이다.
 
 줄의 앵커 §9 N5에 리그의 계층이 걷는 이름을 더한 것이다. **아래가 모두 옮긴 뒤에** 한다.
 

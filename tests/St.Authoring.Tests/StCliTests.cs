@@ -118,7 +118,7 @@ public class StCliTests
 
         (int code, _, string error) = Run("add", path, "t2", "start", "face", "s1", "3");
         Assert.Equal(1, code);
-        Assert.Contains("옛 표기", error);
+        Assert.Contains("at 없는 명령", error);
 
         Assert.Equal(1, Run("set", path, "t1/a/acting/0", "duration", "빠르게").Code);
         Assert.Equal(1, Run("read", path + ".없다").Code);

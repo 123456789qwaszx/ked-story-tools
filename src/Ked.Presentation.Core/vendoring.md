@@ -6,12 +6,12 @@
 
 | 항목 | 값 |
 |---|---|
-| 원본 | `ked-presentation-runtime` `dev` @ `c39986c2` (K1 명세 표 `e5f81084` · K2 줄 읽기 `33c89805` · 종류 배정 확정) |
+| 원본 | `ked-presentation-runtime` `dev` @ `417bf41e` (N5 옛 표기 걷기 `ebbde5ad` · 마무리 `417bf41e` — 그 앞의 K1 명세 표 `e5f81084` · K2 줄 읽기 `33c89805` · 종류 배정 확정 `c39986c2`를 담는다) |
 | 반입일 | 2026-11-22 |
 | 범위 | `Core/` 전부 — `Ease/` · `Emoji/` · `Motion/` · `Primitives/` · `Read/` · `Reduce/` · `Spec/` · `State/` · `Tokens/` · `Transforms/` · `Tuning/` 소스와 `Documentation~/` |
 | 제외 | `Tests/` · `*.meta` · `*.asmdef` |
 | 테스트 | 순수 테스트(코어의 타입만 쓰는 것) 31개를 `tests/Ked.Presentation.Core.Tests/EditMode/`로. 저쪽에 남는 것 — 파서 표의 원문을 읽는 `StageCommandSpecTableParserTests`, 코어 밖의 타입을 쓰는 `CastRegistrySlotOnlyTests` · `CharacterRigRegistryOutsideFoldTests`(`using`에는 드러나지 않는다 — 이름공간 없이 다른 어셈블리의 타입을 쓴다) |
-| 견본 | `tests/St.Authoring.Tests/Fixtures/presentation_demo_Demo_Presentation.yarn`은 같은 커밋의 `Assets/Dialogue/ChapterProgression/` 그대로다(줄 끝 문자는 LF) |
+| 견본 | `tests/St.Authoring.Tests/Fixtures/presentation_demo_Demo_Presentation.yarn`은 같은 커밋의 `Assets/Dialogue/ChapterProgression/` 그대로다(줄 끝 문자는 LF — 작업 트리가 아니라 `git show <커밋>:<경로>`로 꺼낸다. Windows 체크아웃은 CRLF다). 새 표기이고 대사 줄 116개 모두 LineId가 있다 |
 | 이쪽 살림 | `Ked.Presentation.Core.csproj` · `vendoring.md` (동기화 때 유지) |
 
 선반영(이쪽에서 먼저 고친 것)은 없다. 이 툴이 쓰는 것은 `Spec/`(명세 표) · `Read/`(줄 읽기 · 시간표) · `Reduce/`(`LineBeatSchedule` · `YarnCommandTextExtractor`) · `Tokens/`(시간 토큰) · `Tuning/CommandSpecsFileDto.cs`다.
@@ -27,6 +27,7 @@
    `using`만으로는 가려지지 않는다 — 들인 뒤 빌드해서 코어에 없는 타입을 쓰는 것을 마저 뺀다.
 3. **보수** — 소비자(`St.Authoring` · `St.Cli` · `St.App`)의 컴파일 · 의미 적응은 **소비자 쪽에서** 고친다.
    줄 고치기는 코어가 적는 문제 글 하나(커맨드가 남지 않은 표지 — `LineEditor.IsUnusedMarker`)에 기댄다.
+   읽기만인 줄은 코어의 칸(`LineRead.Unanchored` — 대사 줄 앞의 at 없는 명령)으로 가른다.
    그 글이 바뀌면 `표지의_마지막_커맨드를_빼면_알리고_받아들인다` 시험이 실패해 알린다.
 4. **고정** — 전체 빌드 + 전체 테스트. 이 표의 원본 커밋 · 반입일을 갱신한다.
 

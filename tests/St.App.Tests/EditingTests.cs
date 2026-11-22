@@ -12,7 +12,7 @@ public class EditingTests
         "<<at in fade_out s1 15fr>>\n<<at in pause 15fr>>\n<<at in face s2 05>>\n<<gap in 1s>>\n" +
         "<<at start size s1 front 10fr>>\n<<at start motion s2 nod>>\n<<at a face_swap s2 03>> // card:E04\n" +
         "가: [beat=in/]하나 [beat=a/]둘 #line:t1\n\n" +
-        "<<fade_in s1 10fr>>\n나: 옛 표기 #line:t2\n===\n";
+        "<<at start fade_in s1 10fr>>\n<<fade_out s2 10fr>>\n나: 실행되지 않는 명령 #line:t2\n===\n";
 
     private static (MainWindow Window, string Path) Open()
     {

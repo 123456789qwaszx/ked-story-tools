@@ -356,11 +356,32 @@ public class LineEditorTests
     // ── 고치지 않는 줄 ──────────────────────────────────────────────────────
 
     [Fact]
-    public void 옛_표기가_든_줄은_읽기만_한다()
+    public void at_없는_명령이_든_줄은_읽기만_하고_까닭에_그_명령을_적는다()
     {
-        Assert.Contains("옛 표기", Refused(Scripts.Sample, new AddCommand("t2", "start", "face", ["s1", "3"])));
+        string error = Refused(Scripts.Sample, new AddCommand("t2", "start", "face", ["s1", "3"]));
+        Assert.Contains("at 없는 명령", error);
+        Assert.Contains("fade_out", error);
+        Assert.DoesNotContain("<<", error);     // 화면(DirectorText)이 <<…>>를 명령 이름으로 바꾼다 — 까닭은 그 꼴을 쓰지 않는다
         Assert.False(LineEditor.IsEditable(Scripts.Read(Scripts.Sample, "t2"), out _));
         Assert.True(LineEditor.IsEditable(Scripts.Read(Scripts.Sample, "t1"), out _));
+    }
+
+    [Fact]
+    public void 걷힌_step이_남은_줄은_읽기만_한다()
+    {
+        // 런타임 N5 — <<step>>은 등록이 없는 명령이다. at 없는 명령의 하나로 잡힌다.
+        const string text = "title: T\n---\n<<step>>\n<<at start face s1 3>>\n가: 하나 #line:u1\n===\n";
+        Assert.Contains("step", Refused(text, new AddCommand("u1", "start", "face", ["s2", "3"])));
+    }
+
+    [Fact]
+    public void 노드_끝의_at_없는_명령은_마지막_줄을_막지_않는다()
+    {
+        // 붙을 줄이 없이 남은 명령은 암묵 스텝이다 — 어느 줄의 묶음에도 들지 않는다.
+        const string text = "title: T\n---\n<<at start face s1 3>>\n가: 하나 #line:u1\n<<fade_out s1 15fr>>\n===\n";
+        EditOutcome outcome = Ok(text, new AddCommand("u1", "end", "emoji", ["s1", "star"]));
+
+        Assert.Equal("title: T\n---\n<<at start face s1 3>>\n<<at end emoji s1 star>>\n가: 하나 #line:u1\n<<fade_out s1 15fr>>\n===\n", outcome.Text);
     }
 
     [Fact]
@@ -431,10 +452,20 @@ public class LineEditorTests
     }
 
     [Fact]
-    public void 데모_대본의_옛_표기_줄은_거절한다()
+    public void 데모_대본은_어느_줄이나_고칠_수_있다()
     {
+        // 런타임 417bf41e(N5 · 계획서 U4) — 데모의 대사 줄 116개 모두 LineId가 있고 at 없는 명령이 없다.
+        // 줄마다 커맨드 하나를 더해 본다 — 줄 고치기가 다시 읽어 새 문제 · 다른 줄의 달라짐을 본다.
         string text = Scripts.Demo;
-        Refused(text, new AddCommand("ln_7u3jtu6n", "start", "face", ["s1", "3"]));
+        YarnFileRead file = YarnLineReader.ReadFile(text);
+
+        Assert.Equal(116, file.Lines.Count);
+
+        foreach (LineRead line in file.Lines)
+        {
+            Assert.True(LineEditor.IsEditable(line, out string reason), $"{line.LineId}: {reason}");
+            Assert.True(Ok(text, new AddCommand(line.LineId!, "end", "emoji", ["s1", "star"])).Changed, line.LineId);
+        }
     }
 
     [Fact]

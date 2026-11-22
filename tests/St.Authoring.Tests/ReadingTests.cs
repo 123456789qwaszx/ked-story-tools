@@ -216,13 +216,26 @@ public class ReadingTests
     }
 
     [Fact]
-    public void 옛_표기_줄은_읽기만이고_까닭이_있다()
+    public void at_없는_명령이_든_줄은_읽기만이고_그_명령은_보이지_않는다()
     {
+        // at 없는 명령은 실행되지 않는다(런타임 N5) — 스텝에 들지 않아 보이지 않고, 까닭에 이름이 적힌다.
         LineOutline outline = Outline("t2", Director);
 
         Assert.False(outline.Editable);
-        Assert.Contains("옛 표기", outline.ReadOnlyReason);
-        Assert.Equal(1, outline.ShownCommands);
+        Assert.Contains("at 없는 명령", outline.ReadOnlyReason);
+        Assert.Contains("fade_out", outline.ReadOnlyReason);
+        Assert.Equal(1, outline.ShownCommands);         // <<at start fade_in>>만
+    }
+
+    [Fact]
+    public void at_없는_명령만_든_줄은_보이는_커맨드가_없다()
+    {
+        const string text = "title: T\n---\n<<fade_out s2 10fr>>\n나: 하나 #line:u1\n===\n";
+        LineOutline outline = LineOutline.Build(text, Scripts.Read(text, "u1"), Director);
+
+        Assert.False(outline.Editable);
+        Assert.Contains("fade_out", outline.ReadOnlyReason);
+        Assert.Equal(0, outline.ShownCommands);
     }
 
     [Theory]

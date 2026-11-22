@@ -8,7 +8,8 @@ namespace St.Authoring.Tests;
 /// </summary>
 internal static class Scripts
 {
-    /// <summary>줄 넷 — t1 새 표기(앞 앵커 in · 글 표지 a · 커맨드 없는 표지 b), t2 옛 표기, t3 들여쓴 줄, t4 묶음이 없는 줄.</summary>
+    /// <summary>줄 넷 — t1 새 표기(앞 앵커 in · 글 표지 a · 커맨드 없는 표지 b), t2 at 없는 명령이 든 줄(<c>&lt;&lt;at start&gt;&gt;</c> 하나와
+    /// 실행되지 않는 at 없는 명령 하나 — 읽기만), t3 들여쓴 줄, t4 묶음이 없는 줄.</summary>
     public const string Sample =
         "title: T\n" +
         "---\n" +
@@ -22,8 +23,9 @@ internal static class Scripts
         "<<at end emoji s2 star>>\n" +
         "가: [beat=in/]하나 [beat=a/]둘 [beat=b/]셋 #line:t1\n" +
         "\n" +
-        "<<fade_in s1 10fr>>\n" +
-        "나: 옛 표기 #line:t2\n" +
+        "<<at start fade_in s1 10fr>>\n" +
+        "<<fade_out s2 10fr>>\n" +
+        "나: 실행되지 않는 명령 #line:t2\n" +
         "\n" +
         "    <<at start face s1 3>>\n" +
         "    나: 들여쓴 줄 #line:t3\n" +
