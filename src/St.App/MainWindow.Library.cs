@@ -357,13 +357,13 @@ public partial class MainWindow
         };
     }
 
-    private static Control BuildLineRow(LibraryLine line, bool edited)
+    private Control BuildLineRow(LibraryLine line, bool edited)
     {
         string body = line.Read.Body.Length <= ExcerptLength ? line.Read.Body : string.Concat(line.Read.Body.AsSpan(0, ExcerptLength), "…");
 
         StackPanel first = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
 
-        if (line.Read.Speaker.Length > 0)
+        if (_settings.ShowSpeaker && line.Read.Speaker.Length > 0)
         {
             first.Children.Add(new TextBlock { Text = line.Read.Speaker, FontWeight = FontWeight.SemiBold, FontSize = 13 });
         }

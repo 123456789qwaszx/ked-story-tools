@@ -253,10 +253,13 @@ public class UxTests
 
             Assert.Equal(MainWindow.Shortcuts.Count, MainWindow.Shortcuts.Select(s => (s.Key, s.Modifiers)).Distinct().Count());
 
+            // F1은 설정 창을 단축키 탭으로 연다.
             Assert.True(window.PressKey(Key.F1));
-            Avalonia.Controls.Window table = window.ShowShortcuts()!;
-            RenderShots.Save(table, "k4-5-shortcuts");
-            table.Close();
+            Assert.Equal(SettingsTab.Shortcuts, window.SettingsTabShown);
+            Avalonia.Controls.Window settings = window.ShowSettings(SettingsTab.Shortcuts);
+            RenderShots.Save(settings, "k4-5-shortcuts");
+            settings.Close();
+            Assert.Null(window.SettingsTabShown);
             window.Close();
         });
     }
@@ -289,6 +292,34 @@ public class UxTests
             // 후보가 적은 칸에는 펼 것이 없다.
             Assert.False(window.ToggleFieldCandidates("슬롯"));
             window.Close();
+        });
+    }
+
+    [Fact]
+    public void 기타에서_줄_목록의_화자를_끄고_켠다_설정에_남는다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, string settings) = Open();
+            Assert.True(window.ShowSpeaker);
+
+            Avalonia.Controls.Window page = window.ShowSettings(SettingsTab.Other);
+            Assert.Equal(SettingsTab.Other, window.SettingsTabShown);
+            RenderShots.Save(page, "settings-other");
+
+            window.SetShowSpeaker(false);
+            Assert.False(ToolSettings.Load(settings).ShowSpeaker);
+            RenderShots.Save(window, "settings-no-speaker");
+            page.Close();
+            window.Close();
+
+            // 다시 켜도 꺼진 채다.
+            MainWindow again = new(settings);
+            again.Show();
+            Assert.False(again.ShowSpeaker);
+            again.SetShowSpeaker(true);
+            Assert.True(ToolSettings.Load(settings).ShowSpeaker);
+            again.Close();
         });
     }
 }

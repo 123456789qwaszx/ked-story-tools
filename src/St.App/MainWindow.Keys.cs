@@ -20,7 +20,7 @@ public partial class MainWindow
     /// <summary>단축키의 표 — F1의 창에 이 차례로 선다.</summary>
     internal static readonly IReadOnlyList<Shortcut> Shortcuts =
     [
-        new(Key.F1, KeyModifiers.None, "F1", "이 표를 연다", true, w => w.ShowShortcuts() is not null),
+        new(Key.F1, KeyModifiers.None, "F1", "이 표를 연다(설정 창의 단축키)", true, w => w.ShowSettings(SettingsTab.Shortcuts) is not null),
         new(Key.Z, KeyModifiers.Control, "Ctrl+Z", "되돌리기 — 마지막 고침을 되돌려 파일에 쓴다", false, w => w.Undo()),
         new(Key.Y, KeyModifiers.Control, "Ctrl+Y", "다시 하기", false, w => w.Redo()),
         new(Key.Z, KeyModifiers.Control | KeyModifiers.Shift, "Ctrl+Shift+Z", "다시 하기", false, w => w.Redo()),
@@ -37,7 +37,7 @@ public partial class MainWindow
     ];
 
     // 표에는 없지만 손으로 하는 것 — F1의 창에 함께 보인다.
-    private static readonly (string Keys, string Does)[] Gestures =
+    internal static readonly (string Keys, string Does)[] Gestures =
     [
         ("누르기", "커맨드나 앵커를 고른다"),
         ("Ctrl+누르기", "고른 것에 하나를 더하거나 뺀다"),
@@ -49,8 +49,6 @@ public partial class MainWindow
         ("Ctrl+굴리기", "타임라인을 넓히고 좁힌다"),
         ("에피소드의 머리 누르기", "그 에피소드를 접고 편다"),
     ];
-
-    private Window? _shortcutWindow;
 
     protected override void OnKeyDown(KeyEventArgs e)
     {
@@ -84,62 +82,5 @@ public partial class MainWindow
 
         ClearPicks();
         return true;
-    }
-
-    /// <summary>단축키의 표를 창으로 연다 — 이미 열려 있으면 앞으로 낸다.</summary>
-    internal Window? ShowShortcuts()
-    {
-        if (_shortcutWindow is not null)
-        {
-            _shortcutWindow.Activate();
-            return _shortcutWindow;
-        }
-
-        FormGrid keys = new();
-
-        foreach (Shortcut shortcut in Shortcuts)
-        {
-            keys.Add(shortcut.Keys, FormGrid.Hint(shortcut.Does, Brushes.White));
-        }
-
-        FormGrid gestures = new();
-
-        foreach ((string name, string does) in Gestures)
-        {
-            gestures.Add(name, FormGrid.Hint(does, Brushes.White));
-        }
-
-        _shortcutWindow = new Window
-        {
-            Title = "단축키",
-            Width = 560,
-            SizeToContent = SizeToContent.Height,
-            CanResize = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(18),
-                Spacing = 10,
-                Children =
-                {
-                    new TextBlock { Text = "키", FontWeight = FontWeight.SemiBold, FontSize = 13 },
-                    keys,
-                    new TextBlock { Text = "손으로", FontWeight = FontWeight.SemiBold, FontSize = 13, Margin = new Thickness(0, 6, 0, 0) },
-                    gestures,
-                    new TextBlock { Text = "Esc로 닫는다", FontSize = 11, Foreground = Palette.Faint, HorizontalAlignment = HorizontalAlignment.Right },
-                },
-            },
-        };
-
-        _shortcutWindow.KeyDown += (_, e) =>
-        {
-            if (e.Key is Key.Escape or Key.F1)
-            {
-                _shortcutWindow?.Close();
-            }
-        };
-        _shortcutWindow.Closed += (_, _) => _shortcutWindow = null;
-        _shortcutWindow.Show(this);
-        return _shortcutWindow;
     }
 }

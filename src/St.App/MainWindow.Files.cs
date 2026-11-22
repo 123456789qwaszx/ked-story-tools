@@ -34,11 +34,11 @@ public partial class MainWindow
         // 창으로 돌아오면 디스크를 다시 본다 — 다른 도구가 대본을 다시 냈을 수 있다.
         Activated += (_, _) => RefreshFromDisk();
 
-        Button keys = new() { Content = "단축키" };
-        keys.Click += (_, _) => ShowShortcuts();
-        ToolTip.SetTip(keys, "F1");
+        Button settings = new() { Content = "설정" };
+        settings.Click += (_, _) => ShowSettings(SettingsTab.Shortcuts);
+        ToolTip.SetTip(settings, "단축키(F1) · 기타");
 
-        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { open, _undoButton, _redoButton, reload, catalog, keys, _pathText } };
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { open, _undoButton, _redoButton, reload, catalog, settings, _pathText } };
     }
 
     private async Task PickFolderAsync()
