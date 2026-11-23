@@ -21,7 +21,7 @@ public class AddingTests
         {
           "cards": [
             { "id": "E04", "name": "옆에서 들어옴", "class": "등장 · 퇴장", "intent": "밖에서 걸어 들어온다", "when": "새 사람이 올 때",
-              "command": "// 줄 머리\n<<at start move_by s1 3.27u 0u 0fr>>\n<<at start fade_in s1 0.6s>>\n<<gap start 0.5s>>\n화자: 대사 …" },
+              "command": "// 줄 머리\n<<at start left s1 3.27u 0fr>>\n<<at start fade_in s1 0.6s>>\n<<gap start 0.5s>>\n화자: 대사 …" },
             { "id": "G01", "name": "뛰기", "class": "몸짓", "intent": "놀라거나 신날 때",
               "command": "// 줄 머리\n<<at start motion s1 g01_hop>>\n<<at start face_swap s1 <표정> 0.2s>>\n화자: 대사 …\n// 말이 꺾이는 대목\n<<at mid motion s1 g01_hop>>\n화자: 앞 마디,[beat=mid/] 뒷 마디." }
           ]
@@ -147,8 +147,8 @@ public class AddingTests
             window.ChooseAddKind(CommandKind.Placement);
             window.ChooseAdd("E04");
 
-            Assert.Equal(new[] { "move_by", "fade_in" }, window.Pending.Select(p => p.Spec.Name));
-            Assert.Equal(new[] { "s1", "3.27u", "0u", "0fr", "" }, window.Pending[0].Values);
+            Assert.Equal(new[] { "left", "fade_in" }, window.Pending.Select(p => p.Spec.Name));
+            Assert.Equal(new[] { "s1", "3.27u", "0fr", "" }, window.Pending[0].Values);
             Assert.Equal(("start", "0.5s"), window.PendingGaps[0]);
 
             // 슬롯은 줄마다 다르다 — 넣기 전에 고친다.
@@ -158,7 +158,7 @@ public class AddingTests
             Assert.True(window.InsertPending()!.Changed);
 
             Assert.Contains(
-                "<<at start face s2 05>>\n<<at start move_by s2 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s2 0.6s>> // card:E04\n<<gap start 0.5s>>\n",
+                "<<at start face s2 05>>\n<<at start left s2 3.27u 0fr>> // card:E04\n<<at start fade_in s2 0.6s>> // card:E04\n<<gap start 0.5s>>\n",
                 File.ReadAllText(path));
 
             Assert.True(window.Undo());

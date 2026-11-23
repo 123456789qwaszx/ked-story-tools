@@ -6,15 +6,17 @@
 
 | 항목 | 값 |
 |---|---|
-| 원본 | `ked-presentation-runtime` `dev` @ `fbb7e3a2` (표정 · 이모지를 연기에서 뗀 종류 `fbb7e3a2` · N5 옛 표기 걷기 `ebbde5ad` · 마무리 `417bf41e` — 그 앞의 K1 명세 표 `e5f81084` · K2 줄 읽기 `33c89805` · 종류 배정 확정 `c39986c2`를 담는다) |
-| 반입일 | 2026-11-22 |
+| 원본 | `ked-presentation-runtime` `dev` @ `ddee266e` (이동의 축 — 슬롯의 `Move_X` · `Move_Y`와 `left` · `right` · `up` · `down`, `move_by` · `slide_in` · `slide_out` 걷기 `79f6f187` · `b758d788` · `26d78d15` · 확인 `ddee266e`. 그 앞의 표정 · 이모지 종류 `fbb7e3a2` · N5 옛 표기 걷기 `ebbde5ad` · 마무리 `417bf41e` · K1 명세 표 `e5f81084` · K2 줄 읽기 `33c89805` · 종류 배정 확정 `c39986c2`를 담는다) |
+| 반입일 | 2026-11-23 (그 앞 2026-11-22 — `fbb7e3a2`) |
 | 범위 | `Core/` 전부 — `Ease/` · `Emoji/` · `Motion/` · `Primitives/` · `Read/` · `Reduce/` · `Spec/` · `State/` · `Tokens/` · `Transforms/` · `Tuning/` 소스와 `Documentation~/` |
 | 제외 | `Tests/` · `*.meta` · `*.asmdef` |
-| 테스트 | 순수 테스트(코어의 타입만 쓰는 것) 31개를 `tests/Ked.Presentation.Core.Tests/EditMode/`로. 저쪽에 남는 것 — 파서 표의 원문을 읽는 `StageCommandSpecTableParserTests`, 코어 밖의 타입을 쓰는 `CastRegistrySlotOnlyTests` · `CharacterRigRegistryOutsideFoldTests`(`using`에는 드러나지 않는다 — 이름공간 없이 다른 어셈블리의 타입을 쓴다) |
+| 테스트 | 순수 테스트(코어의 타입만 쓰는 것) 30개를 `tests/Ked.Presentation.Core.Tests/EditMode/`로. 저쪽에 남는 것 — 파서 표의 원문을 읽는 `StageCommandSpecTableParserTests`, 코어 밖의 타입을 쓰는 `CastRegistrySlotOnlyTests` · `CharacterRigRegistryOutsideFoldTests`(`using`에는 드러나지 않는다 — 이름공간 없이 다른 어셈블리의 타입을 쓴다) |
 | 견본 | `tests/St.Authoring.Tests/Fixtures/presentation_demo_Demo_Presentation.yarn`은 같은 커밋의 `Assets/Dialogue/ChapterProgression/` 그대로다(줄 끝 문자는 LF — 작업 트리가 아니라 `git show <커밋>:<경로>`로 꺼낸다. Windows 체크아웃은 CRLF다). 새 표기이고 대사 줄 116개 모두 LineId가 있다 |
 | 이쪽 살림 | `Ked.Presentation.Core.csproj` · `vendoring.md` (동기화 때 유지) |
 
-선반영(이쪽에서 먼저 고친 것)은 없다. 이 툴이 쓰는 것은 `Spec/`(명세 표) · `Read/`(줄 읽기 · 시간표) · `Reduce/`(`LineBeatSchedule` · `YarnCommandTextExtractor`) · `Tokens/`(시간 토큰) · `Tuning/CommandSpecsFileDto.cs`다.
+선반영(이쪽에서 먼저 고친 것)은 없다. 리그 덤프(`rig-schemas.json`)는 들이지 않는다 — 이 툴은 리그를 세우지 않는다(덤프는 `ked-motion-tool-characterRig`의 것).
+
+**2026-11-23 반입(`fbb7e3a2` → `ddee266e`)**: 감사 — 이쪽 사본이 `fbb7e3a2`와 바이트까지 같았다(로컬 수정 없음). 바뀐 파일 11 · 걷힌 `Reduce/SlideMotion.cs`. 시험 사본 7을 새 본으로, `SlideTargetTests`는 걷혔다(더한 시험 없음). 견본 데모 대본을 다시 꺼냈다(`place` + `left` · `right` · `up` · `move_reset`). 이 툴은 `SlideMotion`을 부르지 않았다 — 보수는 시험의 지어낸 대본 · 카드(`move_by` → `left` · `right`, 칸의 뜻을 보는 시험은 `place`)뿐이다. 이 툴이 쓰는 것은 `Spec/`(명세 표) · `Read/`(줄 읽기 · 시간표) · `Reduce/`(`LineBeatSchedule` · `YarnCommandTextExtractor`) · `Tokens/`(시간 토큰) · `Tuning/CommandSpecsFileDto.cs`다.
 
 ## 동기화 절차
 

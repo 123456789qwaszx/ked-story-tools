@@ -22,7 +22,7 @@ public class CatalogColumnTests
         {
           "cards": [
             { "id": "E04", "name": "옆에서 들어옴", "class": "등장 · 퇴장", "intent": "밖에서 걸어 들어온다",
-              "command": "<<at start move_by s1 3.27u 0u 0fr>>\n<<at start fade_in s1 0.6s>>\n화자: 대사 …" },
+              "command": "<<at start left s1 3.27u 0fr>>\n<<at start fade_in s1 0.6s>>\n화자: 대사 …" },
             { "id": "G01", "name": "뛰기", "class": "몸짓", "intent": "놀라거나 신날 때",
               "command": "<<at start motion s1 g01_hop>>\n<<at start face_swap s1 <표정> 0.2s>>\n화자: 대사 …" }
           ]
@@ -214,7 +214,7 @@ public class CatalogColumnTests
             Assert.True(window.AddFromCatalog("E04"));
 
             // 카드가 적은 앵커(start)가 이 줄에 있으니 거기에 — 카드 더하기(K4-3)의 규칙 그대로다.
-            Assert.Equal(new[] { "move_by", "fade_in" }, window.Pending.Select(p => p.Spec.Name));
+            Assert.Equal(new[] { "left", "fade_in" }, window.Pending.Select(p => p.Spec.Name));
             Assert.All(window.Pending, p => Assert.Equal("start", p.Anchor));
             RenderShots.Save(window, "k7-2-card");
             window.Close();

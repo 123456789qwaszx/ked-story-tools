@@ -13,7 +13,7 @@ public class CardSwapTests
     private const string Script =
         "title: D\n---\n" +
         "<<gap start 0.5s>>\n<<at start pause 5fr>>\n" +
-        "<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n<<at start face s1 05>>\n" +
+        "<<at start left s1 3.27u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n<<at start face s1 05>>\n" +
         "가: 하나 #line:d1\n===\n";
 
     private static (YarnFileRead File, LineRead Line, CardGroup Card) Read(string text, string lineId, string tag)

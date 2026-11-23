@@ -8,7 +8,7 @@ public class CardGroupTests
     // 지어낸 대본과 카탈로그 — 대사 원문도 실제 카드도 이 저장소에 넣지 않는다.
     private const string Script =
         "title: C\n---\n" +
-        "<<gap start 0.5s>>\n<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n" +
+        "<<gap start 0.5s>>\n<<at start left s1 3.27u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n" +
         "<<at start motion s2 g01_hop>> // card:G01\n<<at start face_swap s2 03 0.2s>> // card:G01\n" +
         "<<at a fade_in s3 0.6s>> // card:E04#2\n<<at start face s1 05>>\n" +
         "가: 하나 [beat=a/]둘 #line:c1\n\n" +
@@ -24,7 +24,7 @@ public class CardGroupTests
         {
           "cards": [
             { "id": "E04", "name": "옆에서 들어옴", "class": "등장 · 퇴장",
-              "command": "<<at start move_by s1 3.27u 0u 0fr>>\n<<at start fade_in s1 0.6s>>\n화자: 대사 …" },
+              "command": "<<at start left s1 3.27u 0fr>>\n<<at start fade_in s1 0.6s>>\n화자: 대사 …" },
             { "id": "E05", "name": "제자리에서 나타남", "class": "등장 · 퇴장",
               "command": "<<at start fade_in s1 0.4s>>\n화자: 대사 …" },
             { "id": "G01", "name": "뛰기", "class": "몸짓",

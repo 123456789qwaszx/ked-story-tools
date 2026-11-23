@@ -172,7 +172,7 @@ K7을 지으며 구현에서 고른 것 — 소유자가 권장대로 정했다(
 |---|---|
 | 조작 | **새 조작 `ReplaceCommand`(바꾸기) — 조작은 P4의 다섯에 이것을 더해 여섯이다.** 고른 `<<at …>>` 한 줄을 제자리에서 새 커맨드로 다시 쓴다(값 바꾸기와 같은 `Change.Replace`). 계획의 "빼기 + 더하기를 `ApplyAll`로"는 쓰지 않았다 — `AddCommand`는 앵커의 맨 뒤(또는 같은 종류 안의 순번)에 붙어서, 바꾼 커맨드가 앞의 `pause`를 잃고(지연이 바뀐다) 다른 종류의 커맨드와의 차례도 바뀐다. 제자리 다시 쓰기는 뺀 자리에 더한 것과 같고 되돌리기 한 칸이다 |
 | 지키는 것 | 앵커 · 앞의 `pause`(지연) · 같은 앵커 안의 차례. 줄 끝 주석은 그대로 두되 **카드의 출처(`// card:…`)만 걷는다** — 더는 그 카드의 커맨드가 아니다(U6의 "빼면 일부"와 같은 뜻). 인자 검사는 더하기와 같다(칸 · 갈래 · 꼭 적는 칸 — `CheckArguments`로 함께 쓴다). 같은 커맨드 · 같은 인자면 고치지 않는다 |
-| 옮겨 적기 | `Editing/CommandSwap.Carry` — **슬롯 · 길이 · 이징만**, 같은 갈래끼리 차례대로. 대본에 적힌 값만 옮긴다(생략값으로 가던 칸은 새 커맨드의 생략값으로). 거리 · 이름 칸은 커맨드마다 뜻이 달라 옮기지 않는다(`place`의 가로는 자리, `move_by`의 가로는 옮기는 양) |
+| 옮겨 적기 | `Editing/CommandSwap.Carry` — **슬롯 · 길이 · 이징만**, 같은 갈래끼리 차례대로. 대본에 적힌 값만 옮긴다(생략값으로 가던 칸은 새 커맨드의 생략값으로). 거리 · 이름 칸은 커맨드마다 뜻이 달라 옮기지 않는다(`place`의 가로는 자리, `left`의 거리는 미는 양) |
 | 화면 | 고칠 수 있는 줄에서 커맨드를 **하나** 고르면 카탈로그의 커맨드마다 「바꾸기」가 선다. 누르면 꼭 적는 칸이 다 찼으면 바로 바꾸고, 비었으면 인스펙터에 "○○ → △△로 바꾸기" 칸이 선다(「바꾸기」 · 「그만두기」 — 다른 것을 고르면 버려진다). 바꾼 뒤에는 바꾼 커맨드를 고른 채다 |
 | 종류 따라가기 | **정했다(U14)**: 커맨드를 고르면 카탈로그 칸이 그 커맨드의 종류로 옮겨 간다(찾는 중이 아닐 때). 바꿀 후보는 대개 같은 종류라서다. 다른 종류를 그 앵커에 넣으려면 종류 단추를 누른다 |
 | 코드 | 도메인 `Editing/LineEdit`(`ReplaceCommand`) · `LineEditor.PlanReplace` · `Editing/CommandSwap`. 화면 `MainWindow.Catalog.cs`(`ReplaceFromCatalog` · `CommitReplace` · `CancelReplace`). 명령줄 `st replace`는 K7-6 |
@@ -188,7 +188,7 @@ K7을 지으며 구현에서 고른 것 — 소유자가 권장대로 정했다(
 | 화면 | 커맨드 줄에 카드 딱지(출처 · 이름 · "일부") — 누르면 그 카드의 커맨드를 모두 고른다(종류 필터에 가려진 것은 빠진다). 줄 머리의 「카드로 보기 (N)」 — 앵커 아래에 카드 한 줄(종류의 점 · 출처 · 이름 · 커맨드 수 · 일부 · 이웃 줄), 「▸」로 그 앵커의 커맨드를 편다. 카드가 여러 앵커에 걸치면 앵커마다 선다("이 앵커에 1 / 2"). 켜고 끈 것은 줄을 옮겨도 남고, 편 카드는 접힌다. 카드 폴더를 고르면 줄을 다시 편다 |
 | 코드 | 도메인 `Reading/CardGroups`. 화면 `MainWindow.Cards.cs`(딱지 · 카드로 보기 · `PickCard`) · `MainWindow.Line.cs`(부르는 자리) |
 | 시험 | 도메인 3(`CatalogTests` — 묶기와 견주기 · 이웃 줄 · 카탈로그 없이와 출처 없는 줄) · 화면 3(`CardGroupTests` — 딱지로 고르기와 필터, 카드로 보기와 펴기, 출처 없는 줄과 카탈로그 없이). 그림 `k7-4-chips` · `k7-4-cards` · `k7-4-expanded` |
-| 남은 것 | 칸이 많은 커맨드(`move_by`)에 카드 딱지까지 붙으면 가운데가 좁을 때 줄 오른쪽이 잘린다 — 줄의 칸을 접어 넘기는 것은 따로 본다 |
+| 남은 것 | 칸이 많은 커맨드(`place` — 슬롯 · 가로 · 세로 · 길이 · 이징)에 카드 딱지까지 붙으면 가운데가 좁을 때 줄 오른쪽이 잘린다 — 줄의 칸을 접어 넘기는 것은 따로 본다 |
 
 **K7-5에서 지은 것(2026-11-23) — 카드 빼기 · 바꾸기 · 위키 · 카드의 글 걷기.**
 
@@ -213,6 +213,8 @@ K7을 지으며 구현에서 고른 것 — 소유자가 권장대로 정했다(
 | 고친 것 | 고치기의 출력이 조작 여럿을 받는다(`Write` — 파일을 읽어야 지을 수 있는 조작도). JSON에 `notes`. 쓰는 법의 종류 목록에 `expression` · `emoji`를 더했다(D13 뒤로 빠져 있었다) |
 | 코드 | `St.Cli/StCli.Cards.cs` · `StCli.cs`(`Write`) · `StCli.Arguments.cs`(`--catalog`) |
 | 시험 | 도메인 5(`StCliTests` — cards와 카탈로그 · 카탈로그 없이 · 카드 없는 줄, 줄의 목록과 json, remove --card와 남는 것 · dry-run, 없는 카드 · 한 줄 안만, replace의 옮겨 적기 · 인자 · 거절) |
+
+**코어 사본 다시 들이기(2026-11-23) — 런타임의 이동의 축(handoff §5).** 런타임 `dev` `ddee266e`(슬롯의 `Move_X` · `Move_Y`, `left` · `right` · `up` · `down`, `move_by` · `slide_in` · `slide_out` 걷기)를 `vendoring.md`의 절차로 들였다 — 코어 11 · 걷힌 `SlideMotion` · 시험 사본 7(+ `SlideTargetTests` 걷기) · 데모 견본. 툴의 코드는 바뀌지 않았다 — 카탈로그 · 더하기 · 바꾸기 · 칸이 모두 명세 표에서 오므로 넷이 그대로 선다. 시험의 지어낸 대본 · 카드만 새 어휘로 옮겼다. 리그 덤프(22노드)는 이 툴이 쓰지 않아 들이지 않는다(characterRig의 일). 런타임 `stage-changes-handoff.md` §6.3이 제안한 "지금 어디인가"(폴드가 줄마다 슬롯의 Track + Move_X + Move_Y를 안다)의 표시는 하지 않았다 — 할지는 소유자가 정한다.
 
 **K7 마무리(2026-11-23) — 묶음 접기(U12).** 카탈로그 칸의 「커맨드 N」 · 「카드 N」 제목을 누르면 그 묶음이 접히고 편다(`SetCatalogFold`). 접힘은 창의 꼴(`WindowLayout.CommandsFolded` · `CardsFolded`)과 함께 남는다. 찾는 중에는 제목이 접히지 않는 글이고 찾은 것이 다 보인다. 시험 화면 1(`CatalogColumnTests`), 그림 `k7-fold-commands`.
 
@@ -254,7 +256,7 @@ K7을 지으며 구현에서 고른 것 — 소유자가 권장대로 정했다(
 | 종류 | 커맨드 | 수 |
 |---|---|---|
 | 카메라 | `shot_zoom` · `shot_pan` · `shot_focus` · `shot_track` · `shot_dolly` · `shot_roll` · `shot_reset` · `shot_reset_all` · `shot_shake` | 9 |
-| 자리와 구도 | `place` · `move_by` · `move_reset` · `rotate_by` · `rotate_reset` · `slide_in` · `slide_out` · `fade_in` · `fade_out` · `fade` · `focus_move` · `focus_rotate` · `focus_scale` · `focus_reset` · `size` · `size_reset` · `mirror` · `sibling_front` · `sibling_back` · `char_visual` · `char_visual_*` 일곱 | 27 |
+| 자리와 구도 | `place` · `left` · `right` · `up` · `down` · `move_reset` · `rotate_by` · `rotate_reset` · `fade_in` · `fade_out` · `fade` · `focus_move` · `focus_rotate` · `focus_scale` · `focus_reset` · `size` · `size_reset` · `mirror` · `sibling_front` · `sibling_back` · `char_visual` · `char_visual_*` 일곱 — 이동의 축(2026-11-23) 뒤로 `move_by` · `slide_in` · `slide_out`이 걷히고 넷이 들었다 | 28 |
 | 표정 (D13) | `face` · `face_swap` | 2 |
 | 연기 | `pose` · `motion` · `char_move_to` · `char_scale_to` · `char_rotate_to` (D13 앞에는 표정 · 이모지의 넷도 여기였다) | 5 |
 | 이모지 (D13) | `emoji` · `emoji_off` | 2 |

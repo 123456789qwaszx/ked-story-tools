@@ -540,13 +540,14 @@ public class LineEditorTests
     public void 슬롯_길이_이징만_같은_갈래끼리_옮겨_적는다()
     {
         StageCommandSpec fadeIn = Spec("fade_in");
-        StageCommandSpec slideIn = Spec("slide_in");
+        StageCommandSpec right = Spec("right");
 
-        string[] values = CommandSwap.Carry([Arg(fadeIn, "slot", "s1"), Arg(fadeIn, "duration", "0.6s")], slideIn);
+        // fade_in → right: 슬롯과 길이를 옮겨 적고, right의 거리는 비어 있다(꼭 적는 칸 — 채워야 바꾼다).
+        string[] values = CommandSwap.Carry([Arg(fadeIn, "slot", "s1"), Arg(fadeIn, "duration", "0.6s")], right);
 
-        for (int i = 0; i < slideIn.Args.Count; i++)
+        for (int i = 0; i < right.Args.Count; i++)
         {
-            string expected = slideIn.Args[i].Kind switch
+            string expected = right.Args[i].Kind switch
             {
                 ArgKind.Slot => "s1",
                 ArgKind.Duration => "0.6s",
@@ -558,10 +559,10 @@ public class LineEditorTests
         // 적지 않아 생략값으로 가던 칸은 옮기지 않는다 — 새 커맨드의 생략값으로 간다.
         Assert.All(CommandSwap.Carry([Arg(fadeIn, "slot", "s1"), Arg(fadeIn, "duration", "18fr", written: false)], fadeIn).Skip(1), v => Assert.Equal("", v));
 
-        // 거리는 커맨드마다 뜻이 달라 옮기지 않는다(place의 가로는 자리, move_by의 가로는 옮기는 양).
-        StageCommandSpec moveBy = Spec("move_by");
+        // 거리는 커맨드마다 뜻이 달라 옮기지 않는다(place의 가로는 자리, left의 거리는 미는 양).
+        StageCommandSpec left = Spec("left");
         StageCommandSpec place = Spec("place");
-        string[] placed = CommandSwap.Carry([Arg(moveBy, "slot", "s1"), Arg(moveBy, "x", "3u")], place);
+        string[] placed = CommandSwap.Carry([Arg(left, "slot", "s1"), Arg(left, "distance", "3u")], place);
         Assert.Equal("s1", placed[0]);
         Assert.All(placed.Skip(1), v => Assert.Equal("", v));
     }

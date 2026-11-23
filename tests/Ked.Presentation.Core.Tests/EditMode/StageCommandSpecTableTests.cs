@@ -35,7 +35,7 @@ namespace Ked.Presentation.Tests
 
             Assert.That(immediate, Is.EquivalentTo(new[] { "surface_layout", "surface_reset" }));
             Assert.That(Table.IsImmediate("surface_layout"), Is.True);
-            Assert.That(Table.IsImmediate("move_by"), Is.False);
+            Assert.That(Table.IsImmediate("place"), Is.False);
             Assert.That(Table.IsImmediate("없는_이름"), Is.False);
             Assert.That(Table.IsImmediate(null), Is.False);
         }
@@ -137,9 +137,26 @@ namespace Ked.Presentation.Tests
         }
 
         [Test]
+        public void 슬롯의_움직임_넷은_자리와_구도이고_거리를_꼭_적는다()
+        {
+            // docs/PLAN_move-axes.md §4 — 슬롯 · 거리 · 길이(0.4s) · 이징.
+            foreach (string name in new[] { "left", "right", "up", "down" })
+            {
+                StageCommandSpec spec = Spec(name);
+
+                Assert.That(spec.Kind, Is.EqualTo(CommandKind.Placement), name);
+                Assert.That(spec.Args.Select(a => a.Name), Is.EqualTo(new[] { "slot", "distance", "duration", "ease" }), name);
+                Assert.That(spec.Args[1].Kind, Is.EqualTo(ArgKind.Distance), name);
+                Assert.That(spec.Args[1].Default, Is.Null, name + " — 거리에는 생략값이 없다");
+                Assert.That(spec.Args[2].Default, Is.EqualTo("0.4s"), name);
+                Assert.That(spec.DurationArgIndex, Is.EqualTo(2), name);
+            }
+        }
+
+        [Test]
         public void 길이_칸의_자리()
         {
-            Assert.That(Spec("move_by").DurationArgIndex, Is.EqualTo(3));
+            Assert.That(Spec("place").DurationArgIndex, Is.EqualTo(3));
             Assert.That(Spec("size").DurationArgIndex, Is.EqualTo(3));
             Assert.That(Spec("pause").DurationArgIndex, Is.EqualTo(0));
             Assert.That(Spec("motion").DurationArgIndex, Is.EqualTo(-1), "모션의 길이는 대본에 없다");
@@ -150,7 +167,7 @@ namespace Ked.Presentation.Tests
         public void 인자를_칸에_맞춘다()
         {
             List<string> problems = new();
-            List<BoundArg> bound = Spec("move_by").Bind(new[] { "s1", "120u", "", "0.4s" }, problems);
+            List<BoundArg> bound = Spec("place").Bind(new[] { "s1", "120u", "", "0.4s" }, problems);
 
             Assert.That(problems, Is.Empty);
             Assert.That(bound.Select(b => b.Spec.Name), Is.EqualTo(new[] { "slot", "x", "y", "duration", "ease" }));
@@ -206,7 +223,7 @@ namespace Ked.Presentation.Tests
             Assert.That(dto.commands.Where(c => c.fork).Select(c => c.name), Is.EqualTo(new[] { "cutin_panel", "messenger_open" }));
 
             // 같은 이름을 조용히 덮지 않는다.
-            Assert.Throws<ArgumentException>(() => StageCommandSpecTable.Core.With(new[] { new StageCommandSpec("move_by", CommandKind.Screen, "") }));
+            Assert.Throws<ArgumentException>(() => StageCommandSpecTable.Core.With(new[] { new StageCommandSpec("place", CommandKind.Screen, "") }));
         }
 
         [Test]

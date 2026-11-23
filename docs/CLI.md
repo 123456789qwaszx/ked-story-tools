@@ -30,7 +30,7 @@ Windows에서는 `st.cmd`, 그 밖에서는 `./st`. 처음 부르면 빌드한�
 
 ```
 $ st read 대본폴더 --line ln_k7inl2cm --kind expression
-ln_k7inl2cm · 하린 · Demo_Presentation · 119행
+ln_k7inl2cm · 하린 · Demo_Presentation · 124행
   종류: 표정
   start   "…"
   a       "…"

@@ -203,7 +203,7 @@ public class StCliTests
         const string text =
             "title: D\n---\n" +
             "<<gap start 0.5s>>\n<<at start pause 5fr>>\n" +
-            "<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n<<at start face s1 05>>\n" +
+            "<<at start left s1 3.27u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n<<at start face s1 05>>\n" +
             "가: 하나 #line:d1\n===\n";
         string path = CardScript(text);
 
@@ -213,7 +213,7 @@ public class StCliTests
 
         (int code, string output, _) = Run("remove", path, "d1", "--card", "E04");
         Assert.Equal(0, code);
-        Assert.Contains("  - <<at start move_by s1 3.27u 0u 0fr>> // card:E04", output);
+        Assert.Contains("  - <<at start left s1 3.27u 0fr>> // card:E04", output);
         Assert.Contains("  - <<at start fade_in s1 0.6s>> // card:E04", output);
         Assert.Contains("간격 · 지연은 건드리지 않았다", output);
         Assert.Equal(
@@ -247,7 +247,7 @@ public class StCliTests
         (int code, string output, _) = Run("replace", path, "c1/start/placement/1", "fade_out");
         Assert.Equal(0, code);
         Assert.Contains("옛 커맨드에서 옮겨 적었다: s1 0.6s", output);
-        Assert.Contains("<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_out s1 0.6s>>\n<<at start motion", File.ReadAllText(path));
+        Assert.Contains("<<at start left s1 3.27u 0fr>> // card:E04\n<<at start fade_out s1 0.6s>>\n<<at start motion", File.ReadAllText(path));
 
         // 인자를 적으면 그대로.
         Assert.Equal(0, Run("replace", path, "c1/start/expression/1", "shot_zoom", "1.2").Code);

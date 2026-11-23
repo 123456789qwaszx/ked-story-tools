@@ -29,7 +29,7 @@ public class CatalogTests
               "format": "시험",
               "cards": [
                 { "id": "E04", "name": "옆에서 들어옴", "class": "등장 · 퇴장", "intent": "밖에서 걸어 들어온다", "when": "새 사람이 올 때", "screen": "옆에서 미끄러져 든다",
-                  "command": "// 줄 머리\n<<at start move_by s1 3.27u 0u 0fr>>\n<<at start fade_in s1 0.6s>>\n화자: 대사 …" },
+                  "command": "// 줄 머리\n<<at start left s1 3.27u 0fr>>\n<<at start fade_in s1 0.6s>>\n화자: 대사 …" },
                 { "id": "G01", "name": "뛰기", "class": "몸짓", "intent": "놀라거나 신날 때",
                   "command": "// 줄 머리\n<<at start motion s1 g01_hop>>\n<<at start face_swap s1 <표정> 0.2s>>\n화자: 대사 …\n// 말이 꺾이는 대목\n<<at a motion s1 g01_hop>>\n화자: 앞 마디,[beat=a/] 뒷 마디." },
                 { "id": "B02", "name": "암전", "class": "화면",
@@ -138,7 +138,7 @@ public class CatalogTests
         StagingEditor editor = new(Scripts.Sample);
         LineEdit[] card =
         [
-            new AddCommand("t1", "start", "move_by", ["s1", "3.27u", "0u", "0fr"], Card: "E04"),
+            new AddCommand("t1", "start", "left", ["s1", "3.27u", "0fr"], Card: "E04"),
             new AddCommand("t1", "start", "fade_in", ["s1", "0.6s"], Card: "E04"),
             new SetGap("t1", "start", "1s"),
         ];
@@ -147,7 +147,7 @@ public class CatalogTests
 
         Assert.True(outcome.Changed);
         Assert.Contains(
-            "<<at start face s2 05>>\n<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n<<gap start 1s>>\n",
+            "<<at start face s2 05>>\n<<at start left s1 3.27u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n<<gap start 1s>>\n",
             editor.Text);
         Assert.Equal(1, editor.Revision);
 
@@ -225,7 +225,7 @@ public class CatalogTests
         CatalogEntry card = shown.Single(e => e.IsCard);
         Assert.Equal("옆에서 들어옴", card.Name);
         Assert.Equal("", card.Summary);
-        Assert.Equal(new[] { "move_by", "fade_in" }, card.Fields);
+        Assert.Equal(new[] { "left", "fade_in" }, card.Fields);
 
         // 카탈로그를 열지 않았으면 커맨드만.
         Assert.DoesNotContain(CatalogIndex.Find(specs, null, CommandKind.Placement, Six, ""), e => e.IsCard);
@@ -271,7 +271,7 @@ public class CatalogTests
     // 지어낸 대본 — E04를 온전히 · E04를 한 줄에 또(#2, 일부) · G01의 첫 묶음, 다음 줄에 G01의 둘째 묶음. 출처 없는 커맨드도 섞는다.
     internal const string CardScript =
         "title: C\n---\n" +
-        "<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n" +
+        "<<at start left s1 3.27u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n" +
         "<<at start motion s2 g01_hop>> // card:G01\n<<at start face_swap s2 03 0.2s>> // card:G01\n" +
         "<<at a fade_in s3 0.6s>> // card:E04#2\n<<at start face s1 05>>\n" +
         "가: 하나 [beat=a/]둘 #line:c1\n\n" +

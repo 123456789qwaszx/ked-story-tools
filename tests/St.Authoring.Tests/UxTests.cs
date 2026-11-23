@@ -22,8 +22,8 @@ public class UxTests
     [InlineData("face_swap", "duration", "13fr", -20, false, "0fr")]
     [InlineData("face_swap", "duration", "0.4s", 2, false, "0.5s")]
     [InlineData("face_swap", "duration", "0.4s", 3, true, "0.415s")]
-    [InlineData("move_by", "x", "-2u", 5, false, "-1.5u")]
-    [InlineData("move_by", "x", "1.5u", -1, true, "1.49u")]
+    [InlineData("place", "x", "-2u", 5, false, "-1.5u")]
+    [InlineData("place", "x", "1.5u", -1, true, "1.49u")]
     [InlineData("rotate_by", "angle", "10", -3, false, "7")]
     [InlineData("shot_zoom", "zoom", "1.2", 2, false, "1.3")]
     [InlineData("fade", "alpha", "0.72", -2, true, "0.71")]
@@ -34,7 +34,7 @@ public class UxTests
     public void 빈_칸은_생략값에서_시작하고_수가_아닌_칸은_끌리지_않는다()
     {
         Assert.Equal("15fr", ValueScrub.Step(Arg("face_swap", "duration"), string.Empty, 2));
-        Assert.Equal("0.1u", ValueScrub.Step(Arg("move_by", "x"), null, 1));
+        Assert.Equal("0.1u", ValueScrub.Step(Arg("place", "x"), null, 1));
 
         Assert.False(ValueScrub.CanScrub(Arg("face_swap", "face")));
         Assert.False(ValueScrub.CanScrub(Arg("face_swap", "slot")));

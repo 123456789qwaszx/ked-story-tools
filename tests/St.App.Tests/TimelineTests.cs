@@ -12,7 +12,7 @@ public class TimelineTests
     private const string Script =
         "title: T\n---\n" +
         "<<at in fade_out s1 15fr>>\n<<at in pause 15fr>>\n<<at in face s2 05>>\n<<gap in 1s>>\n" +
-        "<<at start move_by s1 1u 0u 30fr>>\n<<at start fade_in s1 15fr>>\n<<at start shot_zoom 1.2 0.4s>>\n" +
+        "<<at start right s1 1u 30fr>>\n<<at start fade_in s1 15fr>>\n<<at start shot_zoom 1.2 0.4s>>\n" +
         "<<at a face_swap s2 03>>\n<<at a motion s2 nod>>\n" +
         "가: [beat=in/]하나 둘 셋 넷 [beat=a/]다섯 여섯 #line:t1\n\n" +
         "<<at start fade_in s1 10fr>>\n<<fade_out s2 10fr>>\n나: 실행되지 않는 명령 #line:t2\n===\n";
@@ -58,8 +58,8 @@ public class TimelineTests
         LineTimeline timeline = Timeline();
         TimelineLayout layout = new(timeline, Tracks, 1000);
 
-        // start의 move_by(1초)와 fade_in(0.5초)은 같은 때에 시작하는 자리와 구도다.
-        int moveBy = timeline.Bars.ToList().FindIndex(b => b.Name == "move_by");
+        // start의 right(1초)와 fade_in(0.5초)은 같은 때에 시작하는 자리와 구도다.
+        int moveBy = timeline.Bars.ToList().FindIndex(b => b.Name == "right");
         int fadeIn = timeline.Bars.ToList().FindIndex(b => b.Name == "fade_in");
 
         Assert.Equal(layout.BarRect(moveBy).Left, layout.BarRect(fadeIn).Left, 3);
