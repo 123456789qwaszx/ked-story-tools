@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Ked.Presentation.Core;
@@ -12,6 +13,7 @@ namespace St.App;
 /// <summary>
 /// 카탈로그 칸(K7-1 — docs/PLAN.md §2.4) — 고른 종류의 어휘 전부와 카드가 늘 보인다(D14). 줄 · 앵커 · 커맨드를 고르지 않아도 선다.
 /// 인스펙터 곁의 접히는 기둥이다(U5) — 고른 커맨드의 칸과 함께 보며 바꾼다. 카드는 ID · 이름만 보인다(D17).
+/// 항목을 누르면 고른 줄의 더하기 칸이 그것으로 선다(K7-2) — 넣는 길은 더하기(K4-3)의 것 그대로다.
 /// 무엇을 보일지는 도메인 <see cref="CatalogIndex"/>가 셈한다.
 /// </summary>
 public partial class MainWindow
@@ -113,6 +115,49 @@ public partial class MainWindow
     }
 
     // TextChanged는 디스패처를 한 번 돈 뒤에 온다 — 테스트가 바로 읽을 수 있게 여기서 채운다(줄 찾기의 SearchFor와 같다).
+    /// <summary>
+    /// 카탈로그의 항목(커맨드 이름이나 카드 ID)을 누른 것과 같다 — 고른 줄의 더하기 칸이 그것으로 선다(K7-2).
+    /// 넣을 앵커는 <b>고른 커맨드의 앵커 → 고른 앵커 → <c>start</c></b> 차례로 미리 고른다 — 칸에서 바꿀 수 있다.
+    /// 칸에 보이지 않는 항목, 고른 줄이 없거나 읽기만인 줄이면 세우지 않고 false — 까닭은 상태 줄이나 오른쪽에 보인다.
+    /// </summary>
+    internal bool AddFromCatalog(string id)
+    {
+        if (_catalogShown.FirstOrDefault(e => e.Id == id) is not { } entry)
+        {
+            return false;
+        }
+
+        if (ShownOutline is not { } outline)
+        {
+            _status.Text = $"줄을 먼저 고른다 — {entry.Id}를 넣을 줄이 없다";
+            return false;
+        }
+
+        if (!outline.Editable)
+        {
+            _editMessage = $"{entry.Id}를 넣지 못한다 — 읽기만인 줄이다: {DirectorText.Clean(outline.ReadOnlyReason)}";
+            RefreshInspector();
+            return false;
+        }
+
+        string anchor = PickedCommand?.Anchor ?? PickedAnchor ?? LineBeatSchedule.StartBeat;
+
+        if (outline.Steps.All(s => s.Anchor != anchor))
+        {
+            anchor = outline.Steps[0].Anchor;
+        }
+
+        _addKind = entry.Kind;
+        _addFromCards = entry.IsCard;
+        _addChoice = entry.Id;
+        _addPart = 0;
+
+        // 앵커를 고르면 더하기 칸이 새로 지어진다 — 고른 것(_addChoice)으로.
+        _addFor = null;
+        PickStep(anchor);
+        return true;
+    }
+
     /// <summary>카탈로그 칸의 찾기 칸에 적는다 — 사람이 적은 것과 같다.</summary>
     internal void FindInCatalog(string text)
     {
@@ -180,6 +225,8 @@ public partial class MainWindow
         List<CatalogEntry> commands = _catalogShown.Where(e => !e.IsCard).ToList();
         List<CatalogEntry> cards = _catalogShown.Where(e => e.IsCard).ToList();
 
+        _catalogList.Children.Add(FormGrid.Hint("누르면 고른 줄에 넣을 칸이 오른쪽에 선다 — 고른 커맨드의 앵커, 고른 앵커, 없으면 start에.", Palette.Faint));
+
         if (finding)
         {
             _catalogList.Children.Add(FormGrid.Hint($"여섯 종류에서 찾았다 — 커맨드 {commands.Count} · 카드 {cards.Count}", Palette.Faint));
@@ -189,7 +236,7 @@ public partial class MainWindow
 
         foreach (CatalogEntry entry in commands)
         {
-            _catalogList.Children.Add(CommandRow(entry, finding));
+            _catalogList.Children.Add(Pressable(CommandRow(entry, finding), entry));
         }
 
         _catalogList.Children.Add(SectionTitle(finding ? "카드" : $"카드 {cards.Count}"));
@@ -205,14 +252,25 @@ public partial class MainWindow
 
         foreach (CatalogEntry entry in cards)
         {
-            _catalogList.Children.Add(CardRow(entry, finding));
+            _catalogList.Children.Add(Pressable(CardRow(entry, finding), entry));
         }
+    }
+
+    // 누르면 넣을 칸이 선다. 투명한 바탕이 있어야 빈 곳을 눌러도 잡힌다.
+    private Control Pressable(Border row, CatalogEntry entry)
+    {
+        row.Background = Brushes.Transparent;
+        row.Cursor = new Cursor(StandardCursorType.Hand);
+        row.PointerPressed += (_, _) => AddFromCatalog(entry.Id);
+        row.PointerEntered += (_, _) => row.Background = Palette.Raised;
+        row.PointerExited += (_, _) => row.Background = Brushes.Transparent;
+        return row;
     }
 
     private static TextBlock SectionTitle(string text)
         => new() { Text = text, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Palette.Dim, Margin = new Thickness(0, 10, 0, 2) };
 
-    private static Control CommandRow(CatalogEntry entry, bool showKind)
+    private static Border CommandRow(CatalogEntry entry, bool showKind)
     {
         StackPanel head = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
 
@@ -238,7 +296,7 @@ public partial class MainWindow
         return new Border { Padding = new Thickness(6, 4), CornerRadius = new CornerRadius(4), Child = body };
     }
 
-    private static Control CardRow(CatalogEntry entry, bool showKind)
+    private static Border CardRow(CatalogEntry entry, bool showKind)
     {
         StackPanel head = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
 

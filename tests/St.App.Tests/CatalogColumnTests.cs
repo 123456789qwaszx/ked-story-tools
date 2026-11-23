@@ -11,7 +11,8 @@ public class CatalogColumnTests
     private const string Script =
         "title: T\n---\n" +
         "<<at start face s2 05>>\n<<at start fade_in s1 0.6s>> // card:E04\n<<at a face_swap s2 03>>\n" +
-        "가: 하나 [beat=a/]둘 #line:t1\n===\n";
+        "가: 하나 [beat=a/]둘 #line:t1\n\n" +
+        "<<fade_out s2 10fr>>\n나: 실행되지 않는 명령 #line:t2\n===\n";
 
     private const string Kinds = """
         { "format": "ked-catalog-kinds/1", "classes": { "등장 · 퇴장": "placement", "몸짓": "acting" }, "cards": {} }
@@ -28,10 +29,13 @@ public class CatalogColumnTests
         }
         """;
 
-    private static (MainWindow Window, string Catalog, string Settings) Open()
+    private static (MainWindow Window, string Catalog, string Settings) Open() => Open(out _);
+
+    private static (MainWindow Window, string Catalog, string Settings) Open(out string script)
     {
         string dir = Directory.CreateTempSubdirectory("st-k7-").FullName;
-        File.WriteAllText(Path.Combine(dir, "a.yarn"), Script);
+        script = Path.Combine(dir, "a.yarn");
+        File.WriteAllText(script, Script);
 
         string catalog = Directory.CreateTempSubdirectory("st-k7-catalog-").FullName;
         File.WriteAllText(Path.Combine(catalog, "kinds.json"), Kinds);
@@ -138,6 +142,106 @@ public class CatalogColumnTests
             again.SetCatalogWidth(10);
             Assert.Equal(320, again.CatalogWidth);
             again.Close();
+        });
+    }
+
+    // ── 여기서 넣기(K7-2) ───────────────────────────────────────────────────
+
+    [Fact]
+    public void 아무것도_고르지_않은_줄에서_누르면_start에_넣을_칸이_선다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, _) = Open(out string script);
+            window.SelectLine("t1");
+            Assert.Null(window.PickedAnchor);
+
+            window.ChooseCatalogKind(CommandKind.Camera);
+            Assert.True(window.AddFromCatalog("shot_zoom"));
+
+            // start를 고른 채로 더하기 칸이 그 커맨드로 섰다 — 넣는 길은 더하기(K4-3)의 것 그대로다.
+            Assert.Equal("start", window.PickedAnchor);
+            MainWindow.PendingCommand pending = Assert.Single(window.Pending);
+            Assert.Equal("shot_zoom", pending.Spec.Name);
+            Assert.Equal("start", pending.Anchor);
+
+            window.FillPending(0, 0, "1.2");
+            RenderShots.Save(window, "k7-2-start");
+            Assert.True(window.InsertPending()!.Changed);
+            Assert.Contains("<<at start shot_zoom 1.2>>", File.ReadAllText(script));
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 고른_커맨드의_앵커가_먼저고_다음이_고른_앵커다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, _) = Open();
+            window.SelectLine("t1");
+
+            // 커맨드를 골라 두었으면 그 커맨드의 앵커에.
+            Assert.True(window.SelectCommand("t1/a/expression/0"));
+            Assert.True(window.AddFromCatalog("motion"));
+            Assert.Equal("a", window.PickedAnchor);
+            Assert.Equal("a", Assert.Single(window.Pending).Anchor);
+            RenderShots.Save(window, "k7-2-from-command");
+
+            // 앵커를 골라 두었으면 그 앵커에 — 다른 종류도 찾아서 누르면 그 종류로 선다.
+            window.SelectStep("end");
+            window.FindInCatalog("shot_zoom");
+            Assert.True(window.AddFromCatalog("shot_zoom"));
+            Assert.Equal("end", Assert.Single(window.Pending).Anchor);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 카드를_누르면_그_카드의_묶음이_선다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, string catalog, _) = Open();
+            window.SetCatalog(catalog);
+            window.SelectLine("t1");
+            window.SelectStep("a");
+
+            window.ChooseCatalogKind(CommandKind.Placement);
+            Assert.True(window.AddFromCatalog("E04"));
+
+            // 카드가 적은 앵커(start)가 이 줄에 있으니 거기에 — 카드 더하기(K4-3)의 규칙 그대로다.
+            Assert.Equal(new[] { "move_by", "fade_in" }, window.Pending.Select(p => p.Spec.Name));
+            Assert.All(window.Pending, p => Assert.Equal("start", p.Anchor));
+            RenderShots.Save(window, "k7-2-card");
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 줄이_없거나_읽기만이거나_보이지_않는_항목이면_세우지_않는다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, _) = Open();
+
+            // 고른 줄이 없다 — 상태 줄에 까닭.
+            window.ChooseCatalogKind(CommandKind.Camera);
+            Assert.False(window.AddFromCatalog("shot_zoom"));
+            Assert.Contains("줄을 먼저 고른다", window.StatusLine);
+
+            // 지금 칸에 보이지 않는 항목은 누를 수 없다.
+            window.SelectLine("t1");
+            Assert.False(window.AddFromCatalog("motion"));
+            Assert.Empty(window.Pending);
+
+            // 읽기만인 줄 — 오른쪽에 까닭.
+            window.SelectLine("t2");
+            Assert.False(window.AddFromCatalog("shot_zoom"));
+            Assert.Empty(window.Pending);
+            Assert.Contains("읽기만", window.EditMessage);
+            RenderShots.Save(window, "k7-2-readonly");
+            window.Close();
         });
     }
 }
