@@ -134,7 +134,7 @@ K7을 시작하며 정한 것(소유자가 제안대로 — 2026-11-23):
 | K7-3 **끝** | 바꾸기 | 고른 커맨드를 카탈로그의 다른 커맨드로 — 빼기 + 더하기가 되돌리기 한 칸. 같은 갈래의 칸은 값을 옮겨 적고 지연은 지킨다 |
 | K7-4 **끝** | 카드 묶음 | `// card:ID(#n)`로 커맨드를 묶는다(`Reading`). 카드 딱지 · 딱지로 고르기 · "카드로 보기" |
 | K7-5 **끝** | 카드 빼기 · 바꾸기 | 카드 한 장을 통째로 빼기 · 다른 카드로 바꾸기(슬롯을 옮겨 적는다) · 위키 링크(설정의 주소 틀) · U10 |
-| K7-6 | 명령줄 | `st cards` · `st remove … --card` · `st replace`. `docs/CLI.md` |
+| K7-6 **끝** | 명령줄 | `st cards` · `st remove … --card` · `st replace`. `docs/CLI.md` |
 
 **K7-1에서 지은 것(2026-11-23) — 카탈로그 칸.**
 
@@ -191,6 +191,18 @@ K7을 시작하며 정한 것(소유자가 제안대로 — 2026-11-23):
 | 카드의 글(U10) | 카드 더하기 칸의 의도 · 언제를 걷었다. 카드 읽기(`Card`)도 intent · when · screen을 읽지 않는다 — 안 쓰는 것은 지운다. 본보기의 줄은 남는다 |
 | 코드 | 도메인 `Editing/CardSwap` · `Settings/CardWiki` · `Catalog/CardCatalog`(글 걷기). 화면 `MainWindow.Cards.cs`(카드의 칸 · `RemoveCard` · `ReplaceCardFromCatalog` · 위키) · `MainWindow.Add.cs`(바꾸는 중의 더하기) · `MainWindow.Catalog.cs`(카드의 「바꾸기」 · 「위키」) · `MainWindow.Settings.cs` |
 | 시험 | 도메인 5(`CardSwapTests` — 빼기와 남는 것, 남는 것이 없을 때, 슬롯 · 앵커 잇기, 위키 주소, 카드의 글을 읽지 않기) · 화면 4(`CardGroupTests` — 카드의 칸과 빼기 · 되돌리기, 다른 카드로 바꾸기와 되돌리기 한 칸, 바꾸기가 서지 않거나 그칠 때, 위키 링크). 그림 `k7-5-card` · `k7-5-replace` · `k7-5-wiki` |
+
+**K7-6에서 지은 것(2026-11-23) — 명령줄.** 쓰는 법은 `docs/CLI.md`의 "카드 층" · "고치기".
+
+| | |
+|---|---|
+| `st cards` | `<경로> [--line <LineId>] [--catalog <폴더>]` — 줄의 카드(출처 · 이름 · 일부 · 이웃 줄 · 커맨드의 주소). 줄 없이는 카드가 있는 줄의 목록. `--catalog`가 없으면 묶기만 한다. 카드의 글은 내지 않는다(D17). `--json` |
+| `st remove … --card` | `<경로> <LineId> --card <출처>` — 카드 한 장의 커맨드를 한 번에(`ApplyAll`). 남은 간격 · 지연은 `알림:`(U7). 없는 카드면 있는 카드를 알리고 거절 |
+| `st replace` | `<경로> <주소> <커맨드> [인자…]` — `ReplaceCommand`. **인자를 적지 않으면 화면처럼 슬롯 · 길이 · 이징을 옮겨 적는다**(`CommandSwap.Carry`) — 옮겨 적은 인자를 알린다. 꼭 적는 칸을 채우지 못하면 거절 |
+| 카드 바꾸기 | 명령줄에는 두지 않았다 — `remove --card` 뒤 `add --card`로 커맨드마다(파일에는 두 번 쓴다). 한 번의 조작(되돌리기 한 칸)은 화면에만 있다 |
+| 고친 것 | 고치기의 출력이 조작 여럿을 받는다(`Write` — 파일을 읽어야 지을 수 있는 조작도). JSON에 `notes`. 쓰는 법의 종류 목록에 `expression` · `emoji`를 더했다(D13 뒤로 빠져 있었다) |
+| 코드 | `St.Cli/StCli.Cards.cs` · `StCli.cs`(`Write`) · `StCli.Arguments.cs`(`--catalog`) |
+| 시험 | 도메인 5(`StCliTests` — cards와 카탈로그 · 카탈로그 없이 · 카드 없는 줄, 줄의 목록과 json, remove --card와 남는 것 · dry-run, 없는 카드 · 한 줄 안만, replace의 옮겨 적기 · 인자 · 거절) |
 
 ## 3. 그림
 

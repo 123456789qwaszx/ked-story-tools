@@ -1,13 +1,16 @@
 # `st` — 명령줄로 읽고 고치기
 
-2026-11-22 · K3 · 설계는 [`PLAN.md`](PLAN.md) §4.3 · §4.5. AI 세션과 작업공간의 파이썬 도구가 부르는 입구다 — 화면(K4)과 같은 함수(`St.Authoring`의 `LineEditor`)를 지난다.
+2026-11-22 · K3 (카드 층 · 바꾸기는 2026-11-23 · K7-6) · 설계는 [`PLAN.md`](PLAN.md) §4.3 · §4.5 · §2.4. AI 세션과 작업공간의 파이썬 도구가 부르는 입구다 — 화면(K4)과 같은 함수(`St.Authoring`의 `LineEditor`)를 지난다.
 
 ```
 st read   <경로> [--line <LineId>] [--kind <종류>[,<종류>]]
 st vocab  [--kind <종류>]
+st cards  <경로> [--line <LineId>] [--catalog <폴더>]
 st set    <경로> <주소> <칸> <값>          (값 대신 --clear)
 st add    <경로> <LineId> <앵커> <커맨드> [인자…] [--index <순번>] [--card <카드 ID>]
 st remove <경로> <주소>
+st remove <경로> <LineId> --card <출처>
+st replace <경로> <주소> <커맨드> [인자…]
 st delay  <경로> <주소> <길이>
 st gap    <경로> <LineId> <앵커> <길이>    (길이 대신 --clear)
 공통: --json · --dry-run · --specs <command-specs.json>
@@ -43,13 +46,35 @@ ln_k7inl2cm · 하린 · Demo_Presentation · 119행
 - 앵커는 커맨드가 없어도 모두 보인다 — 거기에 더할 수 있다. `간격 1s`는 그 앵커의 `<<gap>>`.
 - `--line` 없이 부르면 줄의 목록이다(`--kind`를 주면 그 종류의 커맨드가 있는 줄만). `[읽기만]`은 고칠 수 없는 줄이다.
 
+## 카드 층
+
+초안 도구와 카드 더하기는 카드에서 온 커맨드의 줄 끝에 출처를 남긴다 — `<<at start fade_in s1 0.57s>> // card:E04`, 한 줄에 같은 카드를 또 펼치면 둘째부터 `E04#2`(PLAN P5). `st cards`는 이 출처로 한 줄 안의 커맨드를 카드 한 장씩 묶는다.
+
+```
+$ st cards 대본폴더 --line ln_abc --catalog ../ked-vn-workspace/catalog
+# …/ch09.yarn
+  ln_abc            42행  하린: …  (자리와 구도 3 · 표정 2 · 연기 1)
+  카드 3장
+  E04      옆에서 들어옴  — 커맨드 2: start/placement/0 start/placement/1
+  G01      뛰기  — 커맨드 2: start/acting/0 start/expression/0  [다음 줄에 이 카드의 다른 묶음]
+  E04#2    옆에서 들어옴 · 일부  — 커맨드 1: a/placement/0
+```
+
+- 커맨드의 주소는 `st read --line`과 같은 꼴(뒤 세 칸 — 앞에 LineId를 붙이면 주소다).
+- `--catalog`(작업공간의 `catalog/` — `cards.json` · `kinds.json`)를 주면 카드의 이름을 붙이고, 카드의 묶음과 커맨드 이름을 견주어 빠진 것이 있으면 **일부**라고 한다. 값을 고친 것은 일부가 아니다. 없으면 묶기만 한다.
+- `[다음 줄에 이 카드의 다른 묶음]` — 같은 노드의 이웃 줄에 그 카드의 다른 묶음이 있다. 줄을 넘는 짝(B01 · M 계열)일 수 있다 — 짝인지는 카드가 말하지 않는다. 카탈로그가 있어야 안다. 묶기 · 빼기는 한 줄 안에서만 한다.
+- 카드의 글(의도 · 해석 · 쓰인 자리)은 내지 않는다 — 팀의 위키에 있다.
+- `--line` 없이 부르면 카드가 있는 줄의 목록(줄마다 출처, 일부면 `E04#2(일부)`). 출처가 없는 대본(재현 대본 · 스토리 공간)에는 카드가 없다.
+- `--json`이면 `{ path, lineId, cards[ { tag, cardId, name, whole, elsewhere, commands[주소] } ] }`(줄 없이는 `{ files[ { path, lines[ { lineId, cards[…] } ] } ] }`). `whole`은 온전 true · 일부 false · 모름 null.
+
 ## 고치기
 
 | 조작 | 하는 일 |
 |---|---|
 | `set` | 그 `<<at>>` 줄의 인자 하나. 뒤 칸을 적는데 앞 칸이 비어 있으면 앞 칸을 생략값으로 채운다(생략값이 없으면 거절). `--clear`는 그 칸을 비운다 |
 | `add` | 그 앵커의 맨 뒤에 `<<at 앵커 커맨드 인자…>>`. `--index N`이면 그 종류의 N번째가 되게 끼운다. 커맨드가 아직 없는 앵커면 뒤 앵커의 줄 앞에 선다. `--card E04`면 줄 끝에 카드의 출처(`// card:E04`)를 남긴다 — 같은 카드를 한 줄에 또 펼칠 때의 번호(`E04#2`)는 부르는 쪽이 적는다 |
-| `remove` | 그 `<<at>>` 줄 |
+| `remove` | 그 `<<at>>` 줄. `--card <출처>`면(주소 대신 LineId) 그 줄의 그 카드(`E04` · `E04#2`)의 커맨드를 모두 — 한 번에 쓴다. 간격과 `pause`(지연)에는 출처가 없어 건드리지 않고, 카드의 커맨드가 선 앵커에 남은 것을 `알림:`으로 보인다 |
+| `replace` | 그 `<<at>>` 줄을 제자리에서 다른 커맨드로 다시 쓴다 — 앵커 · 앞의 `pause`(지연) · 같은 앵커 안의 차례가 그대로다. 줄 끝의 카드 출처는 걷힌다(더는 그 카드의 것이 아니다). 다른 줄 끝 주석은 남는다. **인자를 적지 않으면 슬롯 · 길이 · 이징을 옛 커맨드에서 옮겨 적는다**(같은 갈래끼리 차례대로, 대본에 적힌 값만 — 거리 · 이름은 커맨드마다 뜻이 달라 옮기지 않는다). 꼭 적는 칸이 비면 거절한다. 인자를 적으면 그대로 쓴다 |
 | `delay` | 지연을 그 값으로 — 그 커맨드 바로 앞의 `pause`를 넣거나 · 고치거나 · 뺀다. **`pause`는 같은 앵커의 뒤 커맨드를 모두 붙잡으므로 그 뒤의 커맨드도 같은 만큼 움직인다.** 더 앞선 기다림보다 당길 수는 없다 |
 | `gap` | 그 앵커의 `<<gap>>`을 넣거나 · 고치거나 · (`--clear` · `0s`) 뺀다 |
 
@@ -75,5 +100,6 @@ ln_k7inl2cm · 하린 · Demo_Presentation · 119행
 
 - 한 줄의 한 종류만 고칠 때 줄 전체를 읽고 다시 쓰지 않는다 — `st read … --line … --kind …`로 주소를 얻고 조작을 부른다.
 - 먼저 `--dry-run`으로 바뀔 줄(`-` · `+`)을 본다.
-- `--json`이면 읽기는 `{ path, line: { lineId, editable, anchors, steps[ { anchor, gap, commands[ { address, name, kind, delay, args[…] } ] } ] } }`, 고치기는 `{ ok, changed, written, target, removed, added, warnings, line }`다.
+- 초안을 카드 단위로 고칠 때 — `st cards … --line …`로 그 줄의 카드를 보고, `st remove … --card`로 통째로 빼고, 다른 카드는 `st add … --card`로 커맨드마다 넣는다(카드를 바꾸는 한 번의 조작은 화면에만 있다).
+- `--json`이면 읽기는 `{ path, line: { lineId, editable, anchors, steps[ { anchor, gap, commands[ { address, name, kind, delay, args[…] } ] } ] } }`, 고치기는 `{ ok, changed, written, target, removed, added, warnings, notes, line }`다. 한 번에 여럿을 고친 것(`remove --card`)은 `removed` · `added`가 줄바꿈으로 이어진다. `notes`는 함께 알리는 것(남은 간격 · 지연, 옮겨 적은 인자).
 - 포크의 대본(포크에만 있는 커맨드)은 `--specs <런타임이 낸 command-specs.json>`으로 읽는다. 없이 읽으면 그 커맨드는 "명세 표에 없다"로 보이고 주소가 없어 고칠 수 없다.
