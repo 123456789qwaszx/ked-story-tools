@@ -352,6 +352,7 @@ public partial class MainWindow
 
         PickedAnchor = null;
         _editMessage = null;
+        _replacingCard = null;
         ShowSelectedLine();
     }
 
@@ -366,6 +367,7 @@ public partial class MainWindow
     /// <summary>고른 것을 모두 놓는다.</summary>
     internal void ClearPicks()
     {
+        _replacingCard = null;
         _picked.Clear();
         PickedAnchor = null;
         _editMessage = null;

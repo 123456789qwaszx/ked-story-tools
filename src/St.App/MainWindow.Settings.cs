@@ -132,6 +132,10 @@ public partial class MainWindow
         CheckBox speaker = new() { Content = "줄 목록에 화자 보이기", IsChecked = _settings.ShowSpeaker };
         speaker.IsCheckedChanged += (_, _) => SetShowSpeaker(speaker.IsChecked == true);
 
+        // 카드의 위키 — 칸을 떠날 때 적는다(적는 글자마다 쓰지 않는다).
+        TextBox wiki = new() { Text = _settings.CardWiki ?? string.Empty, PlaceholderText = "https://…/cards#{id}" };
+        wiki.LostFocus += (_, _) => SetCardWiki(wiki.Text);
+
         return new StackPanel
         {
             Margin = new Thickness(6, 12),
@@ -140,6 +144,9 @@ public partial class MainWindow
             {
                 speaker,
                 FormGrid.Hint("왼쪽 줄 목록의 줄마다 앞에 서는 화자의 이름. 끄면 대사 글만 보인다 — 가운데의 고른 줄에는 그대로 보인다.", Palette.Faint),
+                new TextBlock { Text = "카드 위키 주소", FontWeight = FontWeight.SemiBold, FontSize = 13, Margin = new Thickness(0, 12, 0, 0) },
+                wiki,
+                FormGrid.Hint("카드의 뜻과 쓰임은 팀의 위키에 둔다 — 툴은 카드 ID · 이름과 거기로 가는 링크만 든다. {id} 자리에 카드 ID가 들어간다(없으면 끝에 #ID). http · https만. 비우면 링크가 서지 않는다.", Palette.Faint),
             },
         };
     }

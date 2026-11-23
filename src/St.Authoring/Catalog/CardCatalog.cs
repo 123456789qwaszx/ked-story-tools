@@ -35,9 +35,6 @@ public sealed record Card(
     string Name,
     string Class,
     CommandKind? Kind,
-    string Intent,
-    string When,
-    string Screen,
     IReadOnlyList<CardPart> Parts);
 
 /// <summary>
@@ -117,8 +114,7 @@ public sealed partial class CardCatalog
             }
 
             result.Add(new Card(
-                dto.Id, dto.Name ?? dto.Id, @class, kind, dto.Intent ?? string.Empty, dto.When ?? string.Empty,
-                dto.Screen ?? string.Empty, ParseParts(dto.Id, dto.Command ?? string.Empty, problems)));
+                dto.Id, dto.Name ?? dto.Id, @class, kind, ParseParts(dto.Id, dto.Command ?? string.Empty, problems)));
         }
 
         return new CardCatalog(folder, result, problems);
@@ -227,7 +223,8 @@ public sealed partial class CardCatalog
     // 작업공간의 두 파일에서 이 툴이 읽는 칸만.
     private sealed record CardsDto(List<CardDto>? Cards);
 
-    private sealed record CardDto(string? Id, string? Name, string? Class, string? Intent, string? When, string? Screen, string? Command);
+    // 카드의 글(intent · when · screen)은 읽지 않는다 — 팀의 위키에 있다(D17).
+    private sealed record CardDto(string? Id, string? Name, string? Class, string? Command);
 
     private sealed record KindsDto(string? Format, Dictionary<string, string>? Classes, Dictionary<string, string>? Cards);
 }

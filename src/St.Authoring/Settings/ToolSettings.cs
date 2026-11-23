@@ -37,6 +37,9 @@ public sealed class ToolSettings
     /// <summary>줄 목록(왼쪽)에 화자의 이름을 보인다 — 설정 창의 "기타". 처음에는 보인다.</summary>
     public bool ShowSpeaker { get; set; } = true;
 
+    /// <summary>카드의 위키 주소 틀(<see cref="Settings.CardWiki"/>) — 설정 창의 "기타". 비어 있으면 링크가 서지 않는다.</summary>
+    public string? CardWiki { get; set; }
+
     /// <summary>창의 꼴 — 크기와 양쪽 칸의 폭. 한 번도 닫지 않았으면 null.</summary>
     public WindowLayout? Window { get; set; }
 

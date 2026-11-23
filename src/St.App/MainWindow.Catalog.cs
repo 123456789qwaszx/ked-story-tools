@@ -166,6 +166,7 @@ public partial class MainWindow
             anchor = outline.Steps[0].Anchor;
         }
 
+        _replacingCard = null;
         _addKind = entry.Kind;
         _addFromCards = entry.IsCard;
         _addChoice = entry.Id;
@@ -261,7 +262,8 @@ public partial class MainWindow
     private void SyncCatalogReplace()
     {
         OutlineCommand? command = ReplaceableCommand;
-        string? key = command is null ? null : $"{command.Address}|{command.Name}";
+        CardGroup? card = ShownOutline is { Editable: true } ? PickedCardGroup : null;
+        string? key = command is null && card is null ? null : $"{command?.Address}|{command?.Name}|{card?.Tag}";
 
         if (key == _catalogReplaceKey)
         {
@@ -270,9 +272,12 @@ public partial class MainWindow
 
         _catalogReplaceKey = key;
 
-        if (command is not null && string.IsNullOrWhiteSpace(_catalogQuery.Text) && command.Kind != _catalogKind)
+        // 바꿀 후보는 대개 같은 종류다 — 고른 커맨드의 종류로, 카드를 골랐으면 그 카드의 종류로 옮겨 간다(찾는 중이 아니면).
+        CommandKind? follow = command?.Kind ?? (card is null ? null : _catalog?.Cards.FirstOrDefault(c => c.Id == card.CardId)?.Kind);
+
+        if (follow is { } kind && string.IsNullOrWhiteSpace(_catalogQuery.Text) && kind != _catalogKind)
         {
-            ChooseCatalogKind(command.Kind);
+            ChooseCatalogKind(kind);
             return;
         }
 
@@ -376,6 +381,12 @@ public partial class MainWindow
         _catalogList.Children.Add(FormGrid.Hint("누르면 고른 줄에 넣을 칸이 오른쪽에 선다 — 고른 커맨드의 앵커, 고른 앵커, 없으면 start에.", Palette.Faint));
 
         OutlineCommand? replaceable = ReplaceableCommand;
+        CardGroup? replaceableCard = ShownOutline is { Editable: true } ? PickedCardGroup : null;
+
+        if (replaceableCard is not null)
+        {
+            _catalogList.Children.Add(FormGrid.Hint($"고른 카드 {replaceableCard.Tag}를 다른 카드로 바꾸려면 그 카드의 \"바꾸기\" — 슬롯과 앵커를 옮겨 적는다.", Palette.Dim));
+        }
 
         if (replaceable is not null)
         {
@@ -407,7 +418,7 @@ public partial class MainWindow
 
         foreach (CatalogEntry entry in cards)
         {
-            _catalogList.Children.Add(Pressable(CardRow(entry, finding), entry));
+            _catalogList.Children.Add(Pressable(CardRow(entry, finding, replaceableCard), entry));
         }
     }
 
@@ -460,9 +471,18 @@ public partial class MainWindow
         return new Border { Padding = new Thickness(6, 4), CornerRadius = new CornerRadius(4), Child = body };
     }
 
-    private static Border CardRow(CatalogEntry entry, bool showKind)
+    private Border CardRow(CatalogEntry entry, bool showKind, CardGroup? replacing)
     {
         StackPanel head = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+        // 고른 카드를 이 카드로 바꾼다(K7-5) — 단추가 누르기를 받아 줄의 누르기(넣기)는 일어나지 않는다.
+        if (replacing is not null && replacing.CardId != entry.Id)
+        {
+            Button replace = new() { Content = "바꾸기", Padding = new Thickness(6, 0), FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            replace.Click += (_, _) => ReplaceCardFromCatalog(entry.Id);
+            ToolTip.SetTip(replace, $"고른 카드 {replacing.Tag}를 {entry.Id}로 바꾼다 — 칸을 채워 넣으면 되돌리기 한 칸");
+            head.Children.Add(replace);
+        }
 
         if (showKind)
         {
@@ -471,6 +491,11 @@ public partial class MainWindow
 
         head.Children.Add(Palette.Chip(entry.Id, font: Palette.Mono));
         head.Children.Add(new TextBlock { Text = entry.Name, FontSize = 12, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis });
+
+        if (WikiButton(entry.Id) is { } wiki)
+        {
+            head.Children.Add(wiki);
+        }
 
         StackPanel body = new() { Spacing = 2, Children = { head } };
 

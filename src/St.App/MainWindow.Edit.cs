@@ -93,6 +93,7 @@ public partial class MainWindow
     private void BuildCommandInspector(OutlineCommand command, bool editable)
     {
         int build = _inspectorBuild;
+        BuildCardSection(editable);
 
         _inspector.Children.Add(new StackPanel
         {
@@ -146,6 +147,7 @@ public partial class MainWindow
 
     private void BuildManyInspector(bool editable)
     {
+        BuildCardSection(editable);
         _inspector.Children.Add(new TextBlock { Text = $"커맨드 {_picked.Count}개를 골랐다", FontSize = 15, FontWeight = FontWeight.SemiBold });
         _inspector.Children.Add(FormGrid.Hint(string.Join("\n", _picked.Select(a => $"{a.Anchor} · {CommandKinds.Label(a.Kind)} {a.Index + 1}번째")), Palette.Faint));
 

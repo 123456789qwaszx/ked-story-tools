@@ -138,8 +138,20 @@ public partial class MainWindow
             BorderThickness = new Thickness(0, 1, 0, 0),
             Margin = new Thickness(0, 8, 0, 0),
             Padding = new Thickness(0, 10, 0, 0),
-            Child = new TextBlock { Text = $"{step.Anchor}에 더하기", FontWeight = FontWeight.SemiBold, FontSize = 13 },
+            Child = new TextBlock
+            {
+                Text = _replacingCard is { } old ? $"카드 {old.Tag}를 바꾸기 — {step.Anchor}에" : $"{step.Anchor}에 더하기",
+                FontWeight = FontWeight.SemiBold,
+                FontSize = 13,
+            },
         });
+
+        if (_replacingCard is { } replacing)
+        {
+            _inspector.Children.Add(FormGrid.Hint(
+                $"넣으면 {replacing.Tag}의 커맨드 {replacing.Commands.Count}개를 빼고 이 카드를 넣는다 — 되돌리기 한 칸. 슬롯과 앵커는 {replacing.Tag}의 것을 옮겨 적었다 — 옛 카드가 있던 자리에 선다. 간격 · 지연은 건드리지 않는다.",
+                Palette.Dim));
+        }
 
         // 종류 — 연출가의 종류.
         ComboBox kinds = new()
@@ -212,22 +224,28 @@ public partial class MainWindow
 
         if (Pending.Count > 0 || PendingGaps.Count > 0)
         {
-            Button insert = new() { Content = _addFromCards ? "이 카드 넣기" : "넣기", Margin = new Thickness(0, 6, 0, 0) };
+            Button insert = new() { Content = _replacingCard is not null ? "바꾸기" : _addFromCards ? "이 카드 넣기" : "넣기" };
             insert.Click += (_, _) => InsertPending();
-            _inspector.Children.Add(insert);
+
+            StackPanel buttons = new() { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 6, 0, 0), Children = { insert } };
+
+            if (_replacingCard is not null)
+            {
+                Button cancel = new() { Content = "그만두기" };
+                cancel.Click += (_, _) => CancelCardReplace();
+                buttons.Children.Add(cancel);
+            }
+
+            _inspector.Children.Add(buttons);
         }
     }
 
+    // 카드의 글(의도 · 언제)은 보이지 않는다 — 팀의 위키에 있다(D17 · U10). 위키로 가는 단추와, 넣기에 쓰는 꼴(묶음 · 본보기의 줄)만.
     private void BuildCardNotes(Card card, int build)
     {
-        if (card.Intent.Length > 0)
+        if (WikiButton(card.Id) is { } wiki)
         {
-            _inspector.Children.Add(FormGrid.Hint(card.Intent));
-        }
-
-        if (card.When.Length > 0)
-        {
-            _inspector.Children.Add(FormGrid.Hint($"언제 — {card.When}", Palette.Faint));
+            _inspector.Children.Add(wiki);
         }
 
         if (card.Parts.Count > 1)
@@ -404,6 +422,12 @@ public partial class MainWindow
 
         CardPart part = card.Parts[Math.Clamp(_addPart, 0, card.Parts.Count - 1)];
 
+        // 다른 카드로 바꾸는 중이면 새 카드의 앵커를 옛 카드의 것으로 옮겨 적는다 — 바꾼 카드는 옛 카드가 있던 자리에 선다(K7-5).
+        IReadOnlyDictionary<string, string> anchorMap = _replacingCard is { } replaced
+            ? CardSwap.InOrder(CardSwap.Anchors(replaced), part.Commands.Where(c => Specs.TryGet(c.Name, out _)).Select(c => c.Anchor).ToList())
+            : new Dictionary<string, string>();
+        string Moved(string anchor) => anchorMap.TryGetValue(anchor, out string? to) ? to : Place(anchor);
+
         foreach (CardCommand command in part.Commands)
         {
             if (!Specs.TryGet(command.Name, out StageCommandSpec spec))
@@ -411,7 +435,7 @@ public partial class MainWindow
                 continue;
             }
 
-            PendingCommand pending = new(spec, Place(command.Anchor));
+            PendingCommand pending = new(spec, Moved(command.Anchor));
             Array.Fill(pending.Values, string.Empty);
 
             // 카드의 인자를 칸에 맞춘다 — 채울 자리는 비워 두고 이름만 남긴다.
@@ -441,7 +465,27 @@ public partial class MainWindow
 
         foreach (CardGap gap in part.Gaps)
         {
-            PendingGaps.Add((Place(gap.Anchor), gap.Duration));
+            PendingGaps.Add((Moved(gap.Anchor), gap.Duration));
+        }
+
+        // 다른 카드로 바꾸는 중이면 슬롯을 옛 카드의 것으로 옮겨 적는다(K7-5).
+        if (_replacingCard is { } old && _lines.SelectedItem is LibraryLine line)
+        {
+            List<string> fresh = Pending
+                .SelectMany(p => p.Spec.Args.Select((a, i) => (a, i)).Where(x => x.a.Kind == ArgKind.Slot && p.Values[x.i].Length > 0).Select(x => p.Values[x.i]))
+                .ToList();
+            IReadOnlyDictionary<string, string> map = CardSwap.InOrder(CardSwap.Slots(line.Read, old), fresh);
+
+            foreach (PendingCommand pending in Pending)
+            {
+                for (int i = 0; i < pending.Spec.Args.Count; i++)
+                {
+                    if (pending.Spec.Args[i].Kind == ArgKind.Slot && map.TryGetValue(pending.Values[i], out string? slot))
+                    {
+                        pending.Values[i] = slot;
+                    }
+                }
+            }
         }
     }
 
@@ -472,7 +516,10 @@ public partial class MainWindow
 
         string lineId = ShownOutline.Line.LineId;
         string? tag = PickedCard() is { } card ? LineEditor.NextCardTag(line.File.Script.Text, line.Read, card.Id) : null;
-        List<LineEdit> edits = [];
+
+        // 다른 카드로 바꾸는 중이면 옛 카드를 먼저 뺀다 — 한 덩이(되돌리기 한 칸).
+        CardGroup? replacing = _replacingCard;
+        List<LineEdit> edits = replacing is null ? [] : [.. CardSwap.Remove(replacing)];
 
         foreach (PendingCommand pending in Pending)
         {
@@ -495,6 +542,12 @@ public partial class MainWindow
 
         if (outcome is { Ok: true, Changed: true })
         {
+            if (replacing is not null)
+            {
+                _replacingCard = null;
+                _status.Text = $"카드 {replacing.Tag}를 {PickedCard()?.Id ?? "새 카드"}로 바꿨다 — 간격 · 지연은 건드리지 않았다 · 되돌리기 Ctrl+Z";
+            }
+
             // 넣었으면 채우던 것을 비운다 — 같은 것을 또 넣으려면 다시 고른다.
             _addChoice = null;
             Pending.Clear();
