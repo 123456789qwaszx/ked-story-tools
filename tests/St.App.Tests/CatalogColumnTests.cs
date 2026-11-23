@@ -182,7 +182,10 @@ public class CatalogColumnTests
             window.SelectLine("t1");
 
             // 커맨드를 골라 두었으면 그 커맨드의 앵커에.
+            // 커맨드를 고르면 카탈로그는 그 종류(표정)로 옮겨 간다 — 다른 종류를 넣으려면 그 종류를 누른다.
             Assert.True(window.SelectCommand("t1/a/expression/0"));
+            Assert.Equal(CommandKind.Expression, window.CatalogKind);
+            window.ChooseCatalogKind(CommandKind.Acting);
             Assert.True(window.AddFromCatalog("motion"));
             Assert.Equal("a", window.PickedAnchor);
             Assert.Equal("a", Assert.Single(window.Pending).Anchor);
@@ -241,6 +244,91 @@ public class CatalogColumnTests
             Assert.Empty(window.Pending);
             Assert.Contains("읽기만", window.EditMessage);
             RenderShots.Save(window, "k7-2-readonly");
+            window.Close();
+        });
+    }
+
+    // ── 바꾸기(K7-3) ────────────────────────────────────────────────────────
+
+    [Fact]
+    public void 고른_커맨드를_바꾸면_제자리에서_칸을_옮겨_적고_되돌리기_한_칸이다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, _) = Open(out string script);
+            window.SelectLine("t1");
+
+            // 커맨드를 고르면 카탈로그가 그 종류로 옮겨 가고 커맨드마다 "바꾸기"가 선다.
+            window.ChooseCatalogKind(CommandKind.Camera);
+            Assert.True(window.SelectCommand("t1/start/placement/0"));
+            Assert.Equal(CommandKind.Placement, window.CatalogKind);
+            RenderShots.Save(window, "k7-3-buttons");
+
+            // 꼭 적는 칸(슬롯)이 옮겨 적혀 다 찼다 — 바로 바꾼다. 길이도 옮겨 적고, 카드의 출처는 걷는다.
+            Assert.True(window.ReplaceFromCatalog("fade_out")!.Changed);
+            string text = File.ReadAllText(script);
+            Assert.Contains("<<at start face s2 05>>\n<<at start fade_out s1 0.6s>>\n<<at a face_swap s2 03>>", text);
+            Assert.DoesNotContain("card:E04", text);
+
+            // 바꾼 커맨드를 고른 채다.
+            Assert.Equal(CommandKind.Placement, window.PickedCommand!.Value.Kind);
+            Assert.Contains(window.ShownOutline!.Steps.SelectMany(s => s.Commands), c => c.Name == "fade_out");
+            RenderShots.Save(window, "k7-3-replaced");
+
+            // 되돌리기 한 칸으로 처음과 같다.
+            Assert.True(window.Undo());
+            Assert.Equal(Script, File.ReadAllText(script));
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 꼭_적는_칸이_비면_채울_칸이_서고_채워서_바꾼다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, _) = Open(out string script);
+            window.SelectLine("t1");
+            window.SelectCommand("t1/a/expression/0");
+
+            // face_swap → face: 슬롯은 옮겨 적었지만 표정 칸은 옮기지 않는다(이름 칸) — 채울 칸이 선다.
+            Assert.Null(window.ReplaceFromCatalog("face"));
+            MainWindow.PendingCommand pending = window.ReplacePending!;
+            Assert.Equal("face", pending.Spec.Name);
+            Assert.Equal("s2", pending.Values[0]);
+            Assert.Equal("", pending.Values[1]);
+            Assert.Equal(Script, File.ReadAllText(script));
+
+            pending.Values[1] = "07";
+            RenderShots.Save(window, "k7-3-fill");
+            Assert.True(window.CommitReplace()!.Changed);
+            Assert.Contains("<<at a face s2 07>>\n가:", File.ReadAllText(script));
+            Assert.Null(window.ReplacePending);
+            window.Close();
+        });
+    }
+
+    [Fact]
+    public void 여럿을_골랐거나_같은_커맨드거나_고른_것이_바뀌면_바꾸지_않는다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, _, _) = Open(out string script);
+            window.SelectLine("t1");
+
+            window.SelectCommand("t1/start/placement/0");
+            Assert.Null(window.ReplaceFromCatalog("fade_in"));
+
+            window.SelectCommand("t1/start/expression/0", KeyModifiers.Control);
+            Assert.Null(window.ReplaceFromCatalog("fade_out"));
+            Assert.Equal(Script, File.ReadAllText(script));
+
+            // 채우던 바꾸기는 다른 것을 고르면 버려진다.
+            window.SelectCommand("t1/a/expression/0");
+            window.ReplaceFromCatalog("face");
+            Assert.NotNull(window.ReplacePending);
+            window.SelectStep("a");
+            Assert.Null(window.ReplacePending);
             window.Close();
         });
     }

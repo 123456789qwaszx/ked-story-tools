@@ -255,6 +255,7 @@ public static partial class LineEditor
             SetValue e => PlanSetValue(e, line, block),
             AddCommand e => PlanAdd(e, line, block, anchors, specs),
             RemoveCommand e => PlanRemove(e, line, block),
+            ReplaceCommand e => PlanReplace(e, line, block, specs),
             SetDelay e => PlanSetDelay(e, line, block),
             SetGap e => PlanSetGap(e, line, block, anchors),
             _ => throw new Refusal($"모르는 조작이다: {edit.GetType().Name}"),
@@ -266,6 +267,7 @@ public static partial class LineEditor
             {
                 SetValue e => e.Target,
                 SetDelay e => e.Target,
+                ReplaceCommand e => e.Target,
                 _ => null,
             };
 
@@ -439,25 +441,7 @@ public static partial class LineEditor
         RequireAnchor(anchors, edit.Anchor);
 
         IReadOnlyList<string> args = edit.Args ?? [];
-        List<string> surplus = [];
-        List<BoundArg> bound = spec.Bind(args, surplus);
-
-        if (surplus.Count > 0)
-        {
-            throw new Refusal($"{surplus[0]} ({string.Join(" · ", spec.Args.Select(a => a.Name))})");
-        }
-
-        foreach (BoundArg arg in bound)
-        {
-            if (arg.Token is not null)
-            {
-                CheckToken(spec, arg.Spec, arg.Token);
-            }
-            else if (!arg.Spec.Optional)
-            {
-                throw new Refusal($"<<{spec.Name}>>의 '{arg.Spec.Label}'({arg.Spec.Name}) 칸은 꼭 적는다");
-            }
-        }
+        CheckArguments(spec, args);
 
         LineReadStep? step = line.Step(edit.Anchor);
         List<LineReadCommand> sameKind = step is null
@@ -504,6 +488,67 @@ public static partial class LineEditor
         {
             Comment = comment,
         };
+    }
+
+    // ── 커맨드 바꾸기 ───────────────────────────────────────────────────────
+
+    private static Plan? PlanReplace(ReplaceCommand edit, LineRead line, Block block, StageCommandSpecTable specs)
+    {
+        LineReadCommand command = Find(line, edit.Target);
+        AtLine at = block.ReadAt(command);
+
+        if (!specs.TryGet(edit.Name, out StageCommandSpec spec))
+        {
+            throw new Refusal($"<<{edit.Name}>>은 명세 표에 없는 커맨드다 — 종류와 인자 칸을 모르는 것으로는 바꾸지 않는다");
+        }
+
+        if (spec.Immediate)
+        {
+            throw new Refusal($"<<{spec.Name}>>은 바로 실행하는 명령이다 — 앵커에 속하지 않아 바꿔 넣지 않는다");
+        }
+
+        string[] tokens = [.. edit.Args ?? []];
+        CheckArguments(spec, tokens);
+
+        if (spec.Name == command.Name && tokens.SequenceEqual(at.Args))
+        {
+            return null;
+        }
+
+        return new Plan(Change.Replace, command.Line, AtBody(at.Beat, spec.Name, tokens), command.Line, now =>
+        {
+            LineReadCommand? read = CommandAt(now, command.Line);
+            return read is not null && read.Name == spec.Name && read.Anchor == command.Anchor && read.Args.SequenceEqual(tokens)
+                ? null
+                : $"앵커 '{command.Anchor}'에 <<{spec.Name}>>이 그대로 읽히지 않는다";
+        })
+        {
+            DropCard = true,
+        };
+    }
+
+    // 더하거나 바꿔 넣을 인자 — 칸에 맞고, 낱말이 갈래에 맞고, 꼭 적는 칸이 다 적혀야 한다.
+    private static void CheckArguments(StageCommandSpec spec, IReadOnlyList<string> args)
+    {
+        List<string> surplus = [];
+        List<BoundArg> bound = spec.Bind(args, surplus);
+
+        if (surplus.Count > 0)
+        {
+            throw new Refusal($"{surplus[0]} ({string.Join(" · ", spec.Args.Select(a => a.Name))})");
+        }
+
+        foreach (BoundArg arg in bound)
+        {
+            if (arg.Token is not null)
+            {
+                CheckToken(spec, arg.Spec, arg.Token);
+            }
+            else if (!arg.Spec.Optional)
+            {
+                throw new Refusal($"<<{spec.Name}>>의 '{arg.Spec.Label}'({arg.Spec.Name}) 칸은 꼭 적는다");
+            }
+        }
     }
 
     // ── 커맨드 빼기 ─────────────────────────────────────────────────────────
@@ -874,6 +919,9 @@ public static partial class LineEditor
     {
         /// <summary>넣는 줄의 끝에 붙일 주석(<c>//</c> 뒤의 글). 없으면 null.</summary>
         public string? Comment { get; init; }
+
+        /// <summary>바꾼 줄의 카드 출처를 걷는가(바꾸기).</summary>
+        public bool DropCard { get; init; }
     }
 
     private readonly record struct AtLine(string Beat, IReadOnlyList<string> Args);
@@ -965,6 +1013,12 @@ public static partial class LineEditor
             {
                 case Change.Replace:
                     string replaced = Rewrite(Line(plan.FileLine), plan.Body!);
+
+                    if (plan.DropCard)
+                    {
+                        replaced = WithoutCard(replaced);
+                    }
+
                     removed = lines[index].Trim();
                     added = replaced.Trim();
                     lines[index] = replaced;
@@ -1018,6 +1072,14 @@ public static partial class LineEditor
         {
             int comment = raw.IndexOf("//", StringComparison.Ordinal);
             return comment < 0 ? raw.Length : comment;
+        }
+
+        // 줄 끝의 카드 출처(// card:E04)만 걷는다 — 줄바꿈과 다른 주석은 그대로다.
+        private static string WithoutCard(string raw)
+        {
+            string code = raw.TrimEnd('\r', '\n');
+            Match card = CardCommentPattern().Match(code);
+            return card.Success ? string.Concat(code.AsSpan(0, card.Index).TrimEnd(), raw.AsSpan(code.Length)) : raw;
         }
 
         private static string Rewrite(string raw, string body)

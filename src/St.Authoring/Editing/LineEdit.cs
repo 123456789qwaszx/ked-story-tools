@@ -3,7 +3,7 @@ using Ked.Presentation.Core;
 namespace St.Authoring.Editing;
 
 /// <summary>
-/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯 가지뿐이다.
+/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯이다.
 /// 앵커를 새로 만들거나 옮기는 일은 없다: 표지는 대사 글 안에 있고, 이 툴은 글을 건드리지 않는다.
 /// </summary>
 public abstract record LineEdit(string LineId);
@@ -25,6 +25,13 @@ public sealed record AddCommand(
 
 /// <summary>커맨드 빼기 — 그 <c>&lt;&lt;at&gt;&gt;</c> 한 줄.</summary>
 public sealed record RemoveCommand(CommandAddress Target) : LineEdit(Target.LineId);
+
+/// <summary>
+/// 커맨드 바꾸기(K7-3 · D15) — 그 <c>&lt;&lt;at&gt;&gt;</c> 한 줄을 제자리에서 다른 커맨드로 다시 쓴다. 빼고 그 자리에 더한 것과 같고 되돌리기 한 칸이다.
+/// 앵커와 줄의 차례가 그대로라 앞의 <c>pause</c>(지연)가 지켜진다. 카드의 출처(<c>// card:E04</c>)는 걷는다 — 더는 그 카드의 커맨드가 아니다(U6).
+/// 다른 줄 끝 주석은 그대로 둔다.
+/// </summary>
+public sealed record ReplaceCommand(CommandAddress Target, string Name, IReadOnlyList<string> Args) : LineEdit(Target.LineId);
 
 /// <summary>
 /// 지연 바꾸기 — 앵커가 열린 뒤 그 커맨드가 시작하기까지의 시간을 <paramref name="Delay"/>(시간 토큰 — 15fr · 0.5s)로 맞춘다.

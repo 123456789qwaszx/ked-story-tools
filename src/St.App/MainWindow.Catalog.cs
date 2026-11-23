@@ -7,6 +7,8 @@ using Avalonia.Media;
 using Ked.Presentation.Core;
 using St.App.Views;
 using St.Authoring.Catalog;
+using St.Authoring.Editing;
+using St.Authoring.Reading;
 
 namespace St.App;
 
@@ -14,6 +16,7 @@ namespace St.App;
 /// 카탈로그 칸(K7-1 — docs/PLAN.md §2.4) — 고른 종류의 어휘 전부와 카드가 늘 보인다(D14). 줄 · 앵커 · 커맨드를 고르지 않아도 선다.
 /// 인스펙터 곁의 접히는 기둥이다(U5) — 고른 커맨드의 칸과 함께 보며 바꾼다. 카드는 ID · 이름만 보인다(D17).
 /// 항목을 누르면 고른 줄의 더하기 칸이 그것으로 선다(K7-2) — 넣는 길은 더하기(K4-3)의 것 그대로다.
+/// 커맨드를 하나 고른 채면 커맨드마다 "바꾸기"가 선다(K7-3) — 제자리에서 바꾸고(<see cref="ReplaceCommand"/>) 슬롯 · 길이 · 이징을 옮겨 적는다.
 /// 무엇을 보일지는 도메인 <see cref="CatalogIndex"/>가 셈한다.
 /// </summary>
 public partial class MainWindow
@@ -29,6 +32,22 @@ public partial class MainWindow
     private double _catalogWidth = DefaultCatalogWidth;
     private bool _catalogOpen = true;
     private IReadOnlyList<CatalogEntry> _catalogShown = [];
+
+    // 바꾸기 — 고른 커맨드와, 꼭 적는 칸이 비어 바로 바꾸지 못해 채우고 있는 새 커맨드.
+    private CommandAddress? _replaceTarget;
+    private PendingCommand? _replaceWith;
+
+    // 카탈로그 칸이 "바꾸기"를 보인 대상 — 바뀌면 칸을 다시 짓는다.
+    private string? _catalogReplaceKey;
+
+    /// <summary>바꾸려고 채우고 있는 새 커맨드. 없으면 null.</summary>
+    internal PendingCommand? ReplacePending => _replaceWith;
+
+    /// <summary>바꿀 수 있는 커맨드 — 고칠 수 있는 줄에서 하나만 골랐을 때 그것.</summary>
+    private OutlineCommand? ReplaceableCommand
+        => _picked.Count == 1 && ShownOutline is { Editable: true } outline
+            ? outline.Steps.SelectMany(s => s.Commands).FirstOrDefault(c => c.Address == _picked[0])
+            : null;
 
     /// <summary>카탈로그 칸이 펴져 있는가.</summary>
     internal bool CatalogOpen => _catalogOpen;
@@ -158,6 +177,135 @@ public partial class MainWindow
         return true;
     }
 
+    // ── 바꾸기(K7-3) ────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 고른 커맨드를 카탈로그의 그 커맨드로 바꾼다 — "바꾸기"를 누른 것과 같다. 슬롯 · 길이 · 이징을 옮겨 적고(<see cref="CommandSwap"/>),
+    /// 꼭 적는 칸이 다 차 있으면 바로 바꾼다(되돌리기 한 칸). 비어 있으면 오른쪽에 채울 칸이 서고 null이다 — 채워서 <see cref="CommitReplace"/>.
+    /// 하나만 고르지 않았거나 · 읽기만인 줄이거나 · 칸에 보이지 않거나 · 같은 커맨드면 아무것도 하지 않고 null.
+    /// </summary>
+    internal EditOutcome? ReplaceFromCatalog(string name)
+    {
+        if (ReplaceableCommand is not { } command
+            || name == command.Name
+            || _catalogShown.All(e => e.IsCard || e.Id != name)
+            || !Specs.TryGet(name, out StageCommandSpec spec))
+        {
+            return null;
+        }
+
+        PendingCommand pending = new(spec, command.Address.Anchor);
+        CommandSwap.Carry(command.Args, spec).CopyTo(pending.Values, 0);
+
+        _replaceTarget = command.Address;
+        _replaceWith = pending;
+        _editMessage = null;
+
+        if (Complete(pending))
+        {
+            return CommitReplace();
+        }
+
+        RefreshInspector();
+        return null;
+    }
+
+    /// <summary>채운 새 커맨드로 바꾼다 — 거절되면 채우던 칸이 그대로 남고 까닭이 오른쪽에 뜬다.</summary>
+    internal EditOutcome? CommitReplace()
+    {
+        if (_replaceTarget is not { } target || _replaceWith is not { } pending)
+        {
+            return null;
+        }
+
+        if (!LineEditor.TryComposeArguments(pending.Spec, pending.Values, out IReadOnlyList<string> arguments, out string error))
+        {
+            _editMessage = $"바꾸지 않았다 — {error}";
+            RefreshInspector();
+            return null;
+        }
+
+        EditOutcome? outcome = ApplyEdit(new ReplaceCommand(target, pending.Spec.Name, arguments));
+
+        if (outcome is { Ok: true })
+        {
+            CancelReplace();
+        }
+
+        return outcome;
+    }
+
+    /// <summary>채우던 바꾸기를 그만둔다.</summary>
+    internal void CancelReplace()
+    {
+        _replaceTarget = null;
+        _replaceWith = null;
+        RefreshInspector();
+    }
+
+    // 꼭 적는 칸이 모두 찼는가.
+    private static bool Complete(PendingCommand pending)
+        => pending.Spec.Args.Select((arg, i) => arg.Optional || pending.Values[i].Length > 0).All(filled => filled);
+
+    // 고른 것이 바뀌면 채우던 바꾸기는 버린다.
+    private void ForgetStaleReplace()
+    {
+        if (_replaceTarget is { } target && (_picked.Count != 1 || _picked[0] != target))
+        {
+            _replaceTarget = null;
+            _replaceWith = null;
+        }
+    }
+
+    // 바꿀 수 있는 커맨드가 바뀌면 카탈로그 칸을 다시 짓는다 — 커맨드마다 "바꾸기"가 서고 지고, 그 커맨드의 종류로 옮겨 간다.
+    private void SyncCatalogReplace()
+    {
+        OutlineCommand? command = ReplaceableCommand;
+        string? key = command is null ? null : $"{command.Address}|{command.Name}";
+
+        if (key == _catalogReplaceKey)
+        {
+            return;
+        }
+
+        _catalogReplaceKey = key;
+
+        if (command is not null && string.IsNullOrWhiteSpace(_catalogQuery.Text) && command.Kind != _catalogKind)
+        {
+            ChooseCatalogKind(command.Kind);
+            return;
+        }
+
+        RefreshCatalogColumn();
+    }
+
+    private void BuildReplaceSection(OutlineCommand command, int build)
+    {
+        if (_replaceTarget != command.Address || _replaceWith is not { } pending)
+        {
+            return;
+        }
+
+        _inspector.Children.Add(new Border
+        {
+            BorderBrush = Palette.Line,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Margin = new Thickness(0, 8, 0, 0),
+            Padding = new Thickness(0, 10, 0, 0),
+            Child = new TextBlock { Text = $"{command.Name} → {pending.Spec.Name}로 바꾸기", FontWeight = FontWeight.SemiBold, FontSize = 13 },
+        });
+        _inspector.Children.Add(FormGrid.Hint("슬롯 · 길이 · 이징은 옮겨 적었다. 앵커와 지연은 그대로다. 꼭 적는 칸을 채워 \"바꾸기\".", Palette.Faint));
+        _inspector.Children.Add(BuildPending(pending, [pending.Anchor], build));
+
+        Button replace = new() { Content = "바꾸기" };
+        replace.Click += (_, _) => CommitReplace();
+
+        Button cancel = new() { Content = "그만두기" };
+        cancel.Click += (_, _) => CancelReplace();
+
+        _inspector.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 6, 0, 0), Children = { replace, cancel } });
+    }
+
     /// <summary>카탈로그 칸의 찾기 칸에 적는다 — 사람이 적은 것과 같다.</summary>
     internal void FindInCatalog(string text)
     {
@@ -227,6 +375,13 @@ public partial class MainWindow
 
         _catalogList.Children.Add(FormGrid.Hint("누르면 고른 줄에 넣을 칸이 오른쪽에 선다 — 고른 커맨드의 앵커, 고른 앵커, 없으면 start에.", Palette.Faint));
 
+        OutlineCommand? replaceable = ReplaceableCommand;
+
+        if (replaceable is not null)
+        {
+            _catalogList.Children.Add(FormGrid.Hint($"고른 {replaceable.Name}를 다른 커맨드로 바꾸려면 그 줄의 \"바꾸기\" — 슬롯 · 길이 · 이징을 옮겨 적는다.", Palette.Dim));
+        }
+
         if (finding)
         {
             _catalogList.Children.Add(FormGrid.Hint($"여섯 종류에서 찾았다 — 커맨드 {commands.Count} · 카드 {cards.Count}", Palette.Faint));
@@ -236,7 +391,7 @@ public partial class MainWindow
 
         foreach (CatalogEntry entry in commands)
         {
-            _catalogList.Children.Add(Pressable(CommandRow(entry, finding), entry));
+            _catalogList.Children.Add(Pressable(CommandRow(entry, finding, replaceable?.Name), entry));
         }
 
         _catalogList.Children.Add(SectionTitle(finding ? "카드" : $"카드 {cards.Count}"));
@@ -270,9 +425,18 @@ public partial class MainWindow
     private static TextBlock SectionTitle(string text)
         => new() { Text = text, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Palette.Dim, Margin = new Thickness(0, 10, 0, 2) };
 
-    private static Border CommandRow(CatalogEntry entry, bool showKind)
+    private Border CommandRow(CatalogEntry entry, bool showKind, string? replacing)
     {
         StackPanel head = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+
+        // 고른 커맨드를 이것으로 바꾼다 — 단추가 누르기를 받아 줄의 누르기(넣기)는 일어나지 않는다.
+        if (replacing is not null && replacing != entry.Id)
+        {
+            Button replace = new() { Content = "바꾸기", Padding = new Thickness(6, 0), FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            replace.Click += (_, _) => ReplaceFromCatalog(entry.Id);
+            ToolTip.SetTip(replace, $"고른 {replacing}를 {entry.Id}로 바꾼다 — 되돌리기 한 칸");
+            head.Children.Add(replace);
+        }
 
         if (showKind)
         {

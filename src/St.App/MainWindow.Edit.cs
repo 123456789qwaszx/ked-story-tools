@@ -40,6 +40,8 @@ public partial class MainWindow
     {
         _inspectorBuild++;
         _inspector.Children.Clear();
+        ForgetStaleReplace();
+        SyncCatalogReplace();
 
         LineOutline? outline = ShownOutline;
 
@@ -136,6 +138,7 @@ public partial class MainWindow
         actions.Children.Add(remove);
         actions.Children.Add(copy);
         _inspector.Children.Add(actions);
+        BuildReplaceSection(command, build);
         BuildMotionSection(editable);
 
         _inspector.Children.Add(FormGrid.Hint("지연을 바꾸면 같은 앵커에서 이 뒤에 오는 커맨드도 같은 만큼 움직인다. 이 커맨드만 옮기려면 타임라인에서 막대를 끈다.", Palette.Faint));

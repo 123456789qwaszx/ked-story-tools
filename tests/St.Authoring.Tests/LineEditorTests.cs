@@ -476,4 +476,93 @@ public class LineEditorTests
 
         Assert.Equal("title: T\r\n---\r\n<<at start face s1 3>>\r\n가: 하나 #line:t1", outcome.Text);
     }
+
+    // ── 커맨드 바꾸기(K7-3) ─────────────────────────────────────────────────
+
+    private const string Swap =
+        "title: R\n---\n" +
+        "<<at start face s2 05>>\n<<at start pause 10fr>>\n<<at start fade_in s1 0.6s>> // card:E04\n<<at start face s1 03>> // 메모\n" +
+        "가: 하나 #line:r1\n===\n";
+
+    [Fact]
+    public void 바꾸기는_제자리에서_다른_커맨드로_다시_쓰고_지연과_차례를_지킨다()
+    {
+        EditOutcome outcome = Ok(Swap, new ReplaceCommand(At("r1", "start", CommandKind.Placement, 0), "fade_out", ["s1", "0.6s"]));
+
+        // 앞의 pause가 그대로라 지연이 같고, 뒤의 커맨드와의 차례도 같다. 카드의 출처는 걷힌다 — 더는 그 카드의 것이 아니다.
+        Assert.Contains("<<at start pause 10fr>>\n<<at start fade_out s1 0.6s>>\n<<at start face s1 03>> // 메모\n", outcome.Text);
+        OneLineDiffers(Swap, outcome.Text, "<<at start fade_in s1 0.6s>> // card:E04", "<<at start fade_out s1 0.6s>>");
+        Assert.Equal(At("r1", "start", CommandKind.Placement, 0), outcome.Target);
+        Assert.True(YarnLineReader.ReadFile(Swap, "yarn", StageCommandSpecTable.Default).TryGet(YarnLineReader.NormalizeLineId("r1"), out LineRead before));
+        float delay = before.Step("start").Commands.Single(c => c.Name == "fade_in").Delay;
+        Assert.True(delay > 0f);
+        Assert.Equal(delay, outcome.Line!.Step("start").Commands.Single(c => c.Name == "fade_out").Delay);
+    }
+
+    [Fact]
+    public void 다른_종류로도_바꾸고_카드가_아닌_줄_끝_주석은_지킨다()
+    {
+        EditOutcome outcome = Ok(Swap, new ReplaceCommand(At("r1", "start", CommandKind.Expression, 1), "shot_zoom", ["1.2"]));
+
+        Assert.Contains("<<at start fade_in s1 0.6s>> // card:E04\n<<at start shot_zoom 1.2>> // 메모\n", outcome.Text);
+        Assert.Equal(At("r1", "start", CommandKind.Camera, 0), outcome.Target);
+    }
+
+    [Fact]
+    public void 바꾸기는_꼭_적는_칸이_비거나_모르는_커맨드면_거절하고_같으면_그대로다()
+    {
+        CommandAddress fade = At("r1", "start", CommandKind.Placement, 0);
+
+        Assert.Contains("꼭 적는다", Refused(Swap, new ReplaceCommand(fade, "shot_zoom", [])));
+        Assert.Contains("명세 표에 없는", Refused(Swap, new ReplaceCommand(fade, "no_such", [])));
+        Assert.Contains("바로 실행하는", Refused(Swap, new ReplaceCommand(fade, "surface_reset", [])));
+
+        EditOutcome same = LineEditor.Apply(Swap, new ReplaceCommand(fade, "fade_in", ["s1", "0.6s"]));
+        Assert.True(same.Ok);
+        Assert.False(same.Changed);
+    }
+
+    // ── 바꾸기의 칸 옮겨 적기 ───────────────────────────────────────────────
+
+    private static StageCommandSpec Spec(string name)
+    {
+        Assert.True(StageCommandSpecTable.Default.TryGet(name, out StageCommandSpec spec));
+        return spec;
+    }
+
+    private static St.Authoring.Reading.OutlineArg Arg(StageCommandSpec spec, string name, string value, bool written = true)
+    {
+        CommandArgSpec arg = spec.Args.Single(a => a.Name == name);
+        return new(arg.Name, arg.Label, value, written, arg);
+    }
+
+    [Fact]
+    public void 슬롯_길이_이징만_같은_갈래끼리_옮겨_적는다()
+    {
+        StageCommandSpec fadeIn = Spec("fade_in");
+        StageCommandSpec slideIn = Spec("slide_in");
+
+        string[] values = CommandSwap.Carry([Arg(fadeIn, "slot", "s1"), Arg(fadeIn, "duration", "0.6s")], slideIn);
+
+        for (int i = 0; i < slideIn.Args.Count; i++)
+        {
+            string expected = slideIn.Args[i].Kind switch
+            {
+                ArgKind.Slot => "s1",
+                ArgKind.Duration => "0.6s",
+                _ => "",
+            };
+            Assert.Equal(expected, values[i]);
+        }
+
+        // 적지 않아 생략값으로 가던 칸은 옮기지 않는다 — 새 커맨드의 생략값으로 간다.
+        Assert.All(CommandSwap.Carry([Arg(fadeIn, "slot", "s1"), Arg(fadeIn, "duration", "18fr", written: false)], fadeIn).Skip(1), v => Assert.Equal("", v));
+
+        // 거리는 커맨드마다 뜻이 달라 옮기지 않는다(place의 가로는 자리, move_by의 가로는 옮기는 양).
+        StageCommandSpec moveBy = Spec("move_by");
+        StageCommandSpec place = Spec("place");
+        string[] placed = CommandSwap.Carry([Arg(moveBy, "slot", "s1"), Arg(moveBy, "x", "3u")], place);
+        Assert.Equal("s1", placed[0]);
+        Assert.All(placed.Skip(1), v => Assert.Equal("", v));
+    }
 }
