@@ -265,4 +265,79 @@ public class CatalogTests
         Assert.Equal(new[] { "E04" }, CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "들어옴").Select(e => e.Id));
         Assert.Empty(CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "걸어"));
     }
+
+    // ── 카드 묶음(K7-4) ─────────────────────────────────────────────────────
+
+    // 지어낸 대본 — E04를 온전히 · E04를 한 줄에 또(#2, 일부) · G01의 첫 묶음, 다음 줄에 G01의 둘째 묶음. 출처 없는 커맨드도 섞는다.
+    internal const string CardScript =
+        "title: C\n---\n" +
+        "<<at start move_by s1 3.27u 0u 0fr>> // card:E04\n<<at start fade_in s1 0.6s>> // card:E04\n" +
+        "<<at start motion s2 g01_hop>> // card:G01\n<<at start face_swap s2 03 0.2s>> // card:G01\n" +
+        "<<at a fade_in s3 0.6s>> // card:E04#2\n<<at start face s1 05>>\n" +
+        "가: 하나 [beat=a/]둘 #line:c1\n\n" +
+        "<<at a motion s2 g01_hop>> // card:G01\n" +
+        "나: 앞 마디,[beat=a/] 뒷 마디 #line:c2\n\n" +
+        "다: 출처가 없는 줄 #line:c3\n===\n";
+
+    private static (YarnFileRead File, LineRead Line) ReadCardLine(string lineId)
+    {
+        YarnFileRead file = YarnLineReader.ReadFile(CardScript, "yarn", StageCommandSpecTable.Default);
+        Assert.True(file.TryGet(lineId, out LineRead line));
+        return (file, line);
+    }
+
+    [Fact]
+    public void 출처로_커맨드를_카드_한_장씩_묶고_카탈로그와_견준다()
+    {
+        CardCatalog catalog = CardCatalog.Load(CatalogFolder());
+        (YarnFileRead file, LineRead c1) = ReadCardLine("c1");
+
+        IReadOnlyList<CardGroup> cards = CardGroups.Read(CardScript, file, c1, catalog);
+
+        // 처음 나온 차례 — 같은 카드를 또 펼친 것(#2)은 따로다. 출처 없는 face는 어느 카드에도 들지 않는다.
+        Assert.Equal(new[] { "E04", "G01", "E04#2" }, cards.Select(c => c.Tag));
+        Assert.Equal(new[] { "E04", "G01", "E04" }, cards.Select(c => c.CardId));
+        Assert.Equal(new[] { 2, 2, 1 }, cards.Select(c => c.Commands.Count));
+        Assert.Equal("옆에서 들어옴", cards[0].Name);
+
+        // 카드의 묶음과 같으면 온전하고, 빠진 것이 있으면 일부다(U6).
+        Assert.Equal(new bool?[] { true, true, false }, cards.Select(c => c.Whole));
+
+        // 묶인 커맨드는 줄의 주소로 든다 — E04#2의 fade_in은 앵커 a의 자리와 구도 첫째다.
+        Assert.Equal(new CommandAddress(c1.LineId, "a", CommandKind.Placement, 0), Assert.Single(cards[2].Commands));
+    }
+
+    [Fact]
+    public void 이웃_줄에_같은_카드의_다른_묶음이_있으면_알린다()
+    {
+        CardCatalog catalog = CardCatalog.Load(CatalogFolder());
+
+        (YarnFileRead file, LineRead c1) = ReadCardLine("c1");
+        Assert.Equal("다음 줄", CardGroups.Read(CardScript, file, c1, catalog).Single(c => c.Tag == "G01").Elsewhere);
+        Assert.Null(CardGroups.Read(CardScript, file, c1, catalog).Single(c => c.Tag == "E04").Elsewhere);
+
+        // 다음 줄의 G01은 둘째 묶음(말이 꺾이는 대목) 하나로 온전하다 — 앞 줄에 다른 묶음이 있다.
+        Assert.True(file.TryGet("c2", out LineRead c2));
+        CardGroup g01 = Assert.Single(CardGroups.Read(CardScript, file, c2, catalog));
+        Assert.True(g01.Whole);
+        Assert.Equal("앞 줄", g01.Elsewhere);
+    }
+
+    [Fact]
+    public void 카탈로그가_없으면_묶기만_하고_출처가_없는_줄에는_카드가_없다()
+    {
+        (YarnFileRead file, LineRead c1) = ReadCardLine("c1");
+
+        IReadOnlyList<CardGroup> cards = CardGroups.Read(CardScript, file, c1, null);
+        Assert.Equal(3, cards.Count);
+        Assert.All(cards, c =>
+        {
+            Assert.Null(c.Name);
+            Assert.Null(c.Whole);
+            Assert.Null(c.Elsewhere);
+        });
+
+        (_, LineRead c3) = ReadCardLine("c3");
+        Assert.Empty(CardGroups.Read(CardScript, file, c3, CardCatalog.Load(CatalogFolder())));
+    }
 }

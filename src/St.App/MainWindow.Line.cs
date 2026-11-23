@@ -79,7 +79,9 @@ public partial class MainWindow
         // 다만 사라졌거나 필터에 가려진 것은 놓는다.
         string key = $"{line.File.Script.Path}|{line.Read.LineId}";
 
-        if (key != _shownLine)
+        bool otherLine = key != _shownLine;
+
+        if (otherLine)
         {
             _picked.Clear();
             PickedAnchor = null;
@@ -87,6 +89,7 @@ public partial class MainWindow
         }
 
         _shownLine = key;
+        ReadCards(line, otherLine);
 
         HashSet<CommandAddress> shown = outline.Steps.SelectMany(s => s.Commands).Select(c => c.Address).ToHashSet();
         _picked.RemoveAll(address => !shown.Contains(address));
@@ -157,6 +160,11 @@ public partial class MainWindow
             meta.Children.Add(compare);
         }
 
+        if (CardViewToggle() is { } cards)
+        {
+            meta.Children.Add(cards);
+        }
+
         header.Children.Add(meta);
 
         if (!outline.Editable)
@@ -217,9 +225,9 @@ public partial class MainWindow
         StackPanel block = new() { Spacing = 3 };
         block.Children.Add(Pickable(head, _picked.Count == 0 && PickedAnchor == step.Anchor, _ => PickStep(step.Anchor)));
 
-        foreach (OutlineCommand command in step.Commands)
+        foreach (Control row in _cardView ? CardViewRows(step) : step.Commands.Select(BuildCommand))
         {
-            block.Children.Add(BuildCommand(command));
+            block.Children.Add(row);
         }
 
         if (step.Others.Count > 0 || step.Unknown.Count > 0)
@@ -262,6 +270,12 @@ public partial class MainWindow
             VerticalAlignment = VerticalAlignment.Center,
         });
         row.Children.Add(new TextBlock { Text = command.Name, Width = 130, FontFamily = Palette.Mono, FontSize = 13, VerticalAlignment = VerticalAlignment.Center });
+
+        // 카드에서 온 커맨드 — 카드로 보는 중이면 카드 줄이 이미 말하므로 달지 않는다.
+        if (!_cardView && CardOf(command.Address) is { } card)
+        {
+            row.Children.Add(CardChip(card));
+        }
 
         foreach (OutlineArg arg in command.Args.Where(a => a.Value.Length > 0))
         {

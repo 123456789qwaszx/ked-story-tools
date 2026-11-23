@@ -85,7 +85,9 @@ public partial class MainWindow
         }
 
         _status.Text = $"카드 {_catalog.Cards.Count}장을 읽었다 — {folder}";
-        RefreshInspector();
+
+        // 카드의 이름과 "일부"는 카탈로그로 안다 — 줄을 다시 편다.
+        ShowSelectedLine();
         RefreshCatalogColumn();
         return true;
     }
