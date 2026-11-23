@@ -24,6 +24,7 @@ public partial class MainWindow
         new(Key.Z, KeyModifiers.Control, "Ctrl+Z", "되돌리기 — 마지막 고침을 되돌려 파일에 쓴다", false, w => w.Undo()),
         new(Key.Y, KeyModifiers.Control, "Ctrl+Y", "다시 하기", false, w => w.Redo()),
         new(Key.Z, KeyModifiers.Control | KeyModifiers.Shift, "Ctrl+Shift+Z", "다시 하기", false, w => w.Redo()),
+        new(Key.F2, KeyModifiers.None, "F2", "카탈로그 칸(있는 커맨드와 카드)을 접고 편다", true, w => w.ToggleCatalog()),
         new(Key.F5, KeyModifiers.None, "F5", "디스크의 대본을 다시 읽는다", true, w => w.RefreshFromDisk()),
         new(Key.F, KeyModifiers.Control, "Ctrl+F", "이 장면에서 줄 찾기", true, w => w._search.Focus()),
         new(Key.Up, KeyModifiers.Alt, "Alt+↑", "앞 줄로", true, w => w.MoveLine(-1)),

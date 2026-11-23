@@ -87,4 +87,10 @@ public sealed class WindowLayout
 
     /// <summary>오른쪽(칸)의 폭.</summary>
     public double Right { get; set; }
+
+    /// <summary>카탈로그 칸의 폭 — 접어 두어도 편 때의 폭을 기억한다.</summary>
+    public double Catalog { get; set; }
+
+    /// <summary>카탈로그 칸을 접어 두었는가.</summary>
+    public bool CatalogClosed { get; set; }
 }

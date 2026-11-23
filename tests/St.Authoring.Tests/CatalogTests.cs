@@ -201,4 +201,68 @@ public class CatalogTests
         Assert.Equal("C:/작업공간/catalog", ToolSettings.Load(path).Catalogs["C:/대본"]);
         Assert.Empty(new ToolSettings().Catalogs);
     }
+
+    // ── 카탈로그 칸(K7-1) ───────────────────────────────────────────────────
+
+    private static readonly CommandKind[] Six = CommandKinds.All.Where(CommandKinds.IsDirectorKind).ToArray();
+
+    [Fact]
+    public void 카탈로그_칸은_그_종류의_어휘_전부와_카드를_보인다()
+    {
+        StageCommandSpecTable specs = StageCommandSpecTable.Default;
+        CardCatalog catalog = CardCatalog.Load(CatalogFolder());
+
+        IReadOnlyList<CatalogEntry> shown = CatalogIndex.Find(specs, catalog, CommandKind.Placement, Six, query: null);
+
+        // 커맨드가 먼저(명세 표의 차례), 카드가 뒤(카탈로그의 차례). 바로 실행하는 명령은 앵커에 넣지 못해 빠진다.
+        Assert.Equal(
+            specs.OfKind(CommandKind.Placement).Where(s => !s.Immediate).Select(s => s.Name),
+            shown.Where(e => !e.IsCard).Select(e => e.Id));
+        Assert.Equal(new[] { "E04" }, shown.Where(e => e.IsCard).Select(e => e.Id));
+        Assert.All(shown, e => Assert.Equal(CommandKind.Placement, e.Kind));
+
+        // 카드는 ID · 이름과 펼치는 커맨드의 이름만 든다 — 카드의 글(의도 · 언제)은 들지 않는다(D17).
+        CatalogEntry card = shown.Single(e => e.IsCard);
+        Assert.Equal("옆에서 들어옴", card.Name);
+        Assert.Equal("", card.Summary);
+        Assert.Equal(new[] { "move_by", "fade_in" }, card.Fields);
+
+        // 카탈로그를 열지 않았으면 커맨드만.
+        Assert.DoesNotContain(CatalogIndex.Find(specs, null, CommandKind.Placement, Six, ""), e => e.IsCard);
+    }
+
+    [Fact]
+    public void 커맨드의_칸은_이름으로_보이고_없어도_되는_칸은_괄호로_싼다()
+    {
+        CatalogEntry zoom = CatalogIndex.Commands(StageCommandSpecTable.Default, CommandKind.Camera).Single(e => e.Id == "shot_zoom");
+        StageCommandSpec spec = StageCommandSpecTable.Default.OfKind(CommandKind.Camera).Single(s => s.Name == "shot_zoom");
+
+        Assert.Equal("렌즈의 줌", zoom.Summary);
+        Assert.Equal("줌", zoom.Fields[0]);
+        Assert.Equal($"[{spec.Args[1].Label}]", zoom.Fields[1]);
+        Assert.Equal(spec.Args.Count, zoom.Fields.Count);
+    }
+
+    [Fact]
+    public void 찾으면_여섯_종류에서_이름과_설명으로_찾는다()
+    {
+        StageCommandSpecTable specs = StageCommandSpecTable.Default;
+        CardCatalog catalog = CardCatalog.Load(CatalogFolder());
+
+        // 카메라를 골라 두었어도 다른 종류의 것이 나온다 — 어느 종류인지 몰라도 찾게.
+        IReadOnlyList<CatalogEntry> fade = CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "FADE_");
+        Assert.Contains(fade, e => e.Id == "fade_in" && e.Kind == CommandKind.Placement);
+        Assert.All(fade, e => Assert.Contains("fade_", e.Id + e.Summary, StringComparison.OrdinalIgnoreCase));
+
+        // 설명으로도 찾고, 낱말이 여럿이면 모두 든 것만.
+        Assert.Contains(CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "나타난다"), e => e.Id == "fade_in");
+        IReadOnlyList<CatalogEntry> lensZoom = CatalogIndex.Find(specs, catalog, CommandKind.Acting, Six, "렌즈 줌");
+        Assert.Contains(lensZoom, e => e.Id == "shot_zoom");
+        Assert.DoesNotContain(lensZoom, e => e.Id == "shot_pan");
+
+        // 카드는 ID와 이름으로 찾는다. 카드의 글로는 찾지 않는다(D17).
+        Assert.Equal(new[] { "G01" }, CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "g01").Select(e => e.Id));
+        Assert.Equal(new[] { "E04" }, CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "들어옴").Select(e => e.Id));
+        Assert.Empty(CatalogIndex.Find(specs, catalog, CommandKind.Camera, Six, "걸어"));
+    }
 }

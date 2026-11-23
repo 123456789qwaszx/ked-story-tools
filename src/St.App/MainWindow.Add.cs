@@ -86,6 +86,7 @@ public partial class MainWindow
 
         _status.Text = $"카드 {_catalog.Cards.Count}장을 읽었다 — {folder}";
         RefreshInspector();
+        RefreshCatalogColumn();
         return true;
     }
 
@@ -104,6 +105,9 @@ public partial class MainWindow
                 // 기억해 둔 폴더가 바뀌었다 — 카드 없이 연다. "카드 폴더…"로 다시 고른다.
             }
         }
+
+        // 대본이 바뀌면 명세 표(포크의 것일 수 있다)와 카드가 함께 바뀐다.
+        RefreshCatalogColumn();
     }
 
     // ── 더하기의 칸 ─────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="St.App.MainWindow"
         Title="ked-story-tools"
-        Width="1400" Height="860"
+        Width="1660" Height="860"
         MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen">
     <!-- 뼈대만 XAML이다. 내용은 MainWindow.*.cs가 코드로 채운다 — 형제 툴과 같은 방식. -->

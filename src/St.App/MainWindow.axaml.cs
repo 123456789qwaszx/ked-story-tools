@@ -11,10 +11,10 @@ namespace St.App;
 
 /// <summary>
 /// 셸 — 위에 대본 열기, 왼쪽에 챕터 · 장면 · 에피소드 고르기와 줄 찾기 · 종류 필터, 가운데에 고른 줄의 스텝 목록,
-/// 오른쪽에 고른 커맨드 · 스텝의 칸, 아래에 상태(docs/PLAN.md §4.5 · §4.7).
+/// 오른쪽에 고른 커맨드 · 스텝의 칸과 접히는 카탈로그 칸(§2.4 — K7), 아래에 상태(docs/PLAN.md §4.5 · §4.7).
 /// 고치는 일은 모두 <see cref="EditSession"/>을 지난다 — 조작(<c>LineEdit</c>) 하나가 되돌리기 한 칸이고, 바로 파일에 쓴다(U1).
 /// 맡은 일별 partial: <c>Files</c>(열기 · 되돌리기) · <c>Library</c>(챕터 · 장면 · 줄 목록) · <c>Line</c>(스텝 목록 · 고르기) ·
-/// <c>Edit</c>(칸 고치기 · 빼기 · 복사) · <c>Add</c>(더하기 · 카드) · <c>Timeline</c>(타임라인) · <c>Keys</c>(단축키).
+/// <c>Edit</c>(칸 고치기 · 빼기 · 복사) · <c>Add</c>(더하기 · 카드) · <c>Catalog</c>(카탈로그 칸) · <c>Timeline</c>(타임라인) · <c>Keys</c>(단축키).
 /// 칸의 모양은 <c>Views/ArgField</c> · <c>Views/FormGrid</c>가 맡는다 — 고치는 칸과 채우는 칸이 같은 것을 쓴다.
 /// </summary>
 public partial class MainWindow : Window
@@ -29,7 +29,7 @@ public partial class MainWindow : Window
     private const double MinWindow = 400;
     private const double MinSide = 160;
 
-    private readonly Grid _body = new() { ColumnDefinitions = new ColumnDefinitions("380,4,*,4,340") };
+    private readonly Grid _body = new() { ColumnDefinitions = new ColumnDefinitions("380,4,*,4,340,4,280") };
 
     private EditSession? _session;
 
@@ -65,6 +65,8 @@ public partial class MainWindow : Window
             BuildLinePanel(),
             new GridSplitter { ResizeDirection = GridResizeDirection.Columns, Background = Avalonia.Media.Brushes.Transparent },
             BuildInspectorPanel(),
+            new GridSplitter { ResizeDirection = GridResizeDirection.Columns, Background = Avalonia.Media.Brushes.Transparent },
+            BuildCatalogPanel(),
         ];
 
         for (int i = 0; i < columns.Length; i++)
@@ -110,6 +112,8 @@ public partial class MainWindow : Window
         }
 
         SetSideWidths(layout.Left, layout.Right);
+        SetCatalogWidth(layout.Catalog);
+        SetCatalogOpen(!layout.CatalogClosed);
     }
 
     /// <summary>창의 꼴을 설정에 남긴다 — 창을 닫을 때.</summary>
@@ -124,6 +128,8 @@ public partial class MainWindow : Window
             // 양쪽 칸은 픽셀로 선 칸이다 — 가름대를 끌면 이 값이 바뀐다.
             Left = _body.ColumnDefinitions[0].Width.Value,
             Right = _body.ColumnDefinitions[4].Width.Value,
+            Catalog = CatalogWidth,
+            CatalogClosed = !_catalogOpen,
         };
         _settings.Save(_settingsPath);
     }

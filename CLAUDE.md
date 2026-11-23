@@ -1,6 +1,6 @@
 # ked-story-tools
 
-연출가가 yarn을 보지 않고 연출을 고치는 툴(.NET 10 + Avalonia 12) — 줄(LineId) · 스텝(앵커) · 종류로 읽고 고친다. **지금은 K4-5까지다 — 줄 고치기와 명령줄(`st`), 화면에서 읽고 고치고(값 · 빼기 · 지연 · 간격) 더하고(어휘 · 카드) 타임라인에서 끌어 고치기, 여럿 고르기 · 복사 · 단축키 · 맞대기, 그리고 줄의 모션(K6-4 — 풀기 · 키 솎기 · 그래프로 키 고치기).**
+연출가가 yarn을 보지 않고 연출을 고치는 툴(.NET 10 + Avalonia 12) — 줄(LineId) · 스텝(앵커) · 종류로 읽고 고친다. **지금은 K4-5까지다 — 줄 고치기와 명령줄(`st`), 화면에서 읽고 고치고(값 · 빼기 · 지연 · 간격) 더하고(어휘 · 카드) 타임라인에서 끌어 고치기, 여럿 고르기 · 복사 · 단축키 · 맞대기, 그리고 줄의 모션(K6-4 — 풀기 · 키 솎기 · 그래프로 키 고치기), 늘 보이는 카탈로그 칸(K7-1).**
 
 - **먼저 읽을 것**: `docs/PLAN.md`(무엇을 왜 · 정한 것 · 부품 · 단계) → `docs/handoff/`(세션마다 넘겨받을 일) → `docs/CLI.md`(`st`의 쓰는 법 — 다른 세션의 AI가 본다) · `docs/USER-GUIDE.md`(화면의 쓰는 법). 단계가 끝날 때마다 계획서에 결정과 상태를 적는다.
 - 관계: 정본은 yarn이고 재생은 `ked-presentation-runtime`이 한다. 이 툴은 무대를 그리지 않는다. 명세 표와 줄 읽기는 런타임 코어의 것이고 여기서는 사본을 쓴다 — **코어 사본은 고치지 않는다**(필요한 것은 런타임에서 먼저 정한다. 동기화는 `src/Ked.Presentation.Core/vendoring.md`).
@@ -10,7 +10,7 @@
 ## 구조
 
 `Ked.Presentation.Core`(런타임 코어의 사본 — 순수 C#, netstandard2.1 · C# 9) → `St.Authoring`(도메인 — `Editing` 줄 고치기 · `Reading` 줄 찾기와 펴 보일 꼴 · `Catalog` 연출 카드 · `Scripts` 대본 파일 · `Settings`) → `St.App`(Avalonia 화면) + `St.Cli`(`st`).
-형제 툴 `ked-motion-tool-characterRig`와 같은 꼴이다 — 화면의 셸은 `src/St.App/MainWindow.*.cs`에 맡은 일별 partial로 둔다(`Files` · `Library` · `Line` · `Edit` · `Add` · `Timeline` · `Keys`). 칸의 모양은 `Views/ArgField` · `Views/FormGrid` 하나다 — 고치는 칸과 채우는 칸이 같은 것을 쓴다.
+형제 툴 `ked-motion-tool-characterRig`와 같은 꼴이다 — 화면의 셸은 `src/St.App/MainWindow.*.cs`에 맡은 일별 partial로 둔다(`Files` · `Library` · `Line` · `Edit` · `Add` · `Catalog` · `Timeline` · `Keys`). 칸의 모양은 `Views/ArgField` · `Views/FormGrid` 하나다 — 고치는 칸과 채우는 칸이 같은 것을 쓴다.
 테스트: `tests/St.Authoring.Tests`(xunit — CLI도 여기서) · `tests/St.App.Tests`(xunit — 화면은 `HeadlessUi.Run`) · `tests/Ked.Presentation.Core.Tests`(NUnit — 코어의 순수 테스트).
 
 ## 명령

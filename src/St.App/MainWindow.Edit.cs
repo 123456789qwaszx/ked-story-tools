@@ -69,7 +69,7 @@ public partial class MainWindow
         {
             _inspector.Children.Add(FormGrid.Hint(
                 "가운데에서 커맨드를 누르면 그 칸을, 앵커(스텝의 머리)를 누르면 그 간격을 여기서 고치고 거기에 더한다. " +
-                "Ctrl · Shift로 여럿을 고른다. 단축키는 F1."));
+                "Ctrl · Shift로 여럿을 고른다. 있는 커맨드와 카드는 오른쪽 끝의 카탈로그(F2)에서 본다. 단축키는 F1."));
 
             if (_clipboard.Count > 0 && outline.Editable)
             {

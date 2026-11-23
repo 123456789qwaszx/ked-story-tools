@@ -38,7 +38,7 @@ public partial class MainWindow
         settings.Click += (_, _) => ShowSettings(SettingsTab.Shortcuts);
         ToolTip.SetTip(settings, "단축키(F1) · 기타");
 
-        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { open, _undoButton, _redoButton, reload, catalog, settings, _pathText } };
+        return new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { open, _undoButton, _redoButton, reload, catalog, _catalogToggle, settings, _pathText } };
     }
 
     private async Task PickFolderAsync()
