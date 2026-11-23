@@ -33,6 +33,11 @@ public partial class MainWindow
     private bool _catalogOpen = true;
     private IReadOnlyList<CatalogEntry> _catalogShown = [];
 
+    // 두 묶음의 접힘 — 제목을 눌러 접고 편다. 찾는 중에는 접힘을 따지지 않는다(찾은 것은 다 보인다).
+    private bool _foldCommands;
+    private bool _foldCards;
+    private readonly List<string> _catalogRows = [];
+
     // 바꾸기 — 고른 커맨드와, 꼭 적는 칸이 비어 바로 바꾸지 못해 채우고 있는 새 커맨드.
     private CommandAddress? _replaceTarget;
     private PendingCommand? _replaceWith;
@@ -57,6 +62,27 @@ public partial class MainWindow
 
     /// <summary>카탈로그 칸에 지금 보이는 항목 — 커맨드가 먼저, 카드가 뒤.</summary>
     internal IReadOnlyList<CatalogEntry> CatalogShown => _catalogShown;
+
+    /// <summary>카탈로그 칸에 지금 줄로 선 항목의 ID — 접은 묶음의 것은 빠진다.</summary>
+    internal IReadOnlyList<string> CatalogRows => _catalogRows;
+
+    /// <summary>"커맨드" · "카드" 묶음의 접힘.</summary>
+    internal (bool Commands, bool Cards) CatalogFolds => (_foldCommands, _foldCards);
+
+    /// <summary>"커맨드"(true)나 "카드"(false) 묶음을 접거나 편다 — 제목을 누른 것과 같다. 창의 꼴과 함께 기억한다.</summary>
+    internal void SetCatalogFold(bool commands, bool folded)
+    {
+        if (commands)
+        {
+            _foldCommands = folded;
+        }
+        else
+        {
+            _foldCards = folded;
+        }
+
+        RefreshCatalogColumn();
+    }
 
     /// <summary>카탈로그 칸의 폭 — 접어 두었으면 편 때의 폭.</summary>
     internal double CatalogWidth => _catalogOpen ? _body.ColumnDefinitions[6].Width.Value : _catalogWidth;
@@ -374,6 +400,7 @@ public partial class MainWindow
 
         _catalogShown = CatalogIndex.Find(Specs, _catalog, _catalogKind, DirectorKinds, query);
         _catalogList.Children.Clear();
+        _catalogRows.Clear();
 
         List<CatalogEntry> commands = _catalogShown.Where(e => !e.IsCard).ToList();
         List<CatalogEntry> cards = _catalogShown.Where(e => e.IsCard).ToList();
@@ -398,14 +425,25 @@ public partial class MainWindow
             _catalogList.Children.Add(FormGrid.Hint($"여섯 종류에서 찾았다 — 커맨드 {commands.Count} · 카드 {cards.Count}", Palette.Faint));
         }
 
-        _catalogList.Children.Add(SectionTitle(finding ? "커맨드" : $"{CommandKinds.Label(_catalogKind)}의 커맨드 {commands.Count}"));
+        bool showCommands = finding || !_foldCommands;
+        _catalogList.Children.Add(SectionTitle(finding ? "커맨드" : $"{CommandKinds.Label(_catalogKind)}의 커맨드 {commands.Count}", finding ? null : showCommands, commands: true));
 
-        foreach (CatalogEntry entry in commands)
+        if (showCommands)
         {
-            _catalogList.Children.Add(Pressable(CommandRow(entry, finding, replaceable?.Name), entry));
+            foreach (CatalogEntry entry in commands)
+            {
+                _catalogList.Children.Add(Pressable(CommandRow(entry, finding, replaceable?.Name), entry));
+                _catalogRows.Add(entry.Id);
+            }
         }
 
-        _catalogList.Children.Add(SectionTitle(finding ? "카드" : $"카드 {cards.Count}"));
+        bool showCards = finding || !_foldCards;
+        _catalogList.Children.Add(SectionTitle(finding ? "카드" : $"카드 {cards.Count}", finding ? null : showCards, commands: false));
+
+        if (!showCards)
+        {
+            return;
+        }
 
         if (_catalog is null)
         {
@@ -419,6 +457,7 @@ public partial class MainWindow
         foreach (CatalogEntry entry in cards)
         {
             _catalogList.Children.Add(Pressable(CardRow(entry, finding, replaceableCard), entry));
+            _catalogRows.Add(entry.Id);
         }
     }
 
@@ -433,8 +472,34 @@ public partial class MainWindow
         return row;
     }
 
-    private static TextBlock SectionTitle(string text)
-        => new() { Text = text, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = Palette.Dim, Margin = new Thickness(0, 10, 0, 2) };
+    // 묶음의 제목 — open이 null이면(찾는 중) 접을 수 없는 글이고, 아니면 눌러 접고 편다.
+    private Control SectionTitle(string text, bool? open, bool commands)
+    {
+        TextBlock title = new()
+        {
+            Text = open is null ? text : $"{(open.Value ? "▾" : "▸")} {text}",
+            FontSize = 11,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = Palette.Dim,
+        };
+
+        if (open is not { } isOpen)
+        {
+            title.Margin = new Thickness(0, 10, 0, 2);
+            return title;
+        }
+
+        Border pressable = new()
+        {
+            Background = Brushes.Transparent,
+            Cursor = new Cursor(StandardCursorType.Hand),
+            Margin = new Thickness(0, 10, 0, 2),
+            Child = title,
+        };
+        pressable.PointerPressed += (_, _) => SetCatalogFold(commands, isOpen);
+        ToolTip.SetTip(pressable, isOpen ? "접는다" : "편다");
+        return pressable;
+    }
 
     private Border CommandRow(CatalogEntry entry, bool showKind, string? replacing)
     {

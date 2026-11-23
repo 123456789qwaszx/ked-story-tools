@@ -114,6 +114,8 @@ public partial class MainWindow : Window
         SetSideWidths(layout.Left, layout.Right);
         SetCatalogWidth(layout.Catalog);
         SetCatalogOpen(!layout.CatalogClosed);
+        SetCatalogFold(commands: true, layout.CommandsFolded);
+        SetCatalogFold(commands: false, layout.CardsFolded);
     }
 
     /// <summary>창의 꼴을 설정에 남긴다 — 창을 닫을 때.</summary>
@@ -130,6 +132,8 @@ public partial class MainWindow : Window
             Right = _body.ColumnDefinitions[4].Width.Value,
             Catalog = CatalogWidth,
             CatalogClosed = !_catalogOpen,
+            CommandsFolded = _foldCommands,
+            CardsFolded = _foldCards,
         };
         _settings.Save(_settingsPath);
     }

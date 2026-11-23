@@ -332,4 +332,41 @@ public class CatalogColumnTests
             window.Close();
         });
     }
+
+    // ── 묶음 접기(K7 마무리 — U12) ──────────────────────────────────────────
+
+    [Fact]
+    public void 커맨드와_카드_묶음은_제목으로_접히고_찾을_때는_다_보이며_접힘을_기억한다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            (MainWindow window, string catalog, string settings) = Open();
+            window.SetCatalog(catalog);
+            window.ChooseCatalogKind(CommandKind.Placement);
+            Assert.Contains("fade_in", window.CatalogRows);
+            Assert.Contains("E04", window.CatalogRows);
+
+            // 커맨드를 접으면 카드가 바로 보인다 — 커맨드가 많은 종류(자리와 구도)에서 카드가 밀리지 않게.
+            window.SetCatalogFold(commands: true, folded: true);
+            Assert.Equal(new[] { "E04" }, window.CatalogRows);
+            RenderShots.Save(window, "k7-fold-commands");
+
+            // 찾는 중에는 접힘을 따지지 않는다 — 찾은 것은 다 보인다.
+            window.FindInCatalog("fade");
+            Assert.Contains("fade_in", window.CatalogRows);
+            window.FindInCatalog("");
+
+            window.SetCatalogFold(commands: false, folded: true);
+            Assert.Empty(window.CatalogRows);
+            window.Close();
+
+            MainWindow again = new(settings);
+            again.Show();
+            Assert.Equal((true, true), again.CatalogFolds);
+            again.SetCatalogFold(commands: true, folded: false);
+            Assert.NotEmpty(again.CatalogRows);
+            Assert.DoesNotContain(again.CatalogRows, id => id == "E04");
+            again.Close();
+        });
+    }
 }

@@ -96,4 +96,10 @@ public sealed class WindowLayout
 
     /// <summary>카탈로그 칸을 접어 두었는가.</summary>
     public bool CatalogClosed { get; set; }
+
+    /// <summary>카탈로그 칸의 "커맨드" 묶음을 접어 두었는가.</summary>
+    public bool CommandsFolded { get; set; }
+
+    /// <summary>카탈로그 칸의 "카드" 묶음을 접어 두었는가.</summary>
+    public bool CardsFolded { get; set; }
 }
