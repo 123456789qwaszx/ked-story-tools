@@ -53,6 +53,7 @@ public partial class MainWindow
         _lineHost.Children.Clear();
         ShownOutline = null;
         ShownChanges = [];
+        ShownReview = null;
 
         if (_lines.SelectedItem is not LibraryLine line)
         {
@@ -101,6 +102,11 @@ public partial class MainWindow
 
         bool edited = _session?.IsEdited(line) == true;
         _lineHost.Children.Add(BuildLineHeader(line, outline, edited));
+
+        if (BuildReview(line) is { } review)
+        {
+            _lineHost.Children.Add(review);
+        }
 
         if (_comparing && edited && _session?.Original(line) is { } original)
         {

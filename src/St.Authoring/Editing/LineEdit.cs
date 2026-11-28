@@ -3,8 +3,8 @@ using Ked.Presentation.Core;
 namespace St.Authoring.Editing;
 
 /// <summary>
-/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯이다.
-/// 앵커를 새로 만들거나 옮기는 일은 없다: 표지는 대사 글 안에 있고, 이 툴은 글을 건드리지 않는다.
+/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯, 연출 층의 확인(K8 · C7)까지 일곱이다.
+/// 앵커를 새로 만들거나 옮기는 일은 없다: 표지는 대사 글 안에 있고, 이 툴은 글을 짓지 않는다 — 확인은 디렉터의 글을 받아 적을 뿐이다.
 /// </summary>
 public abstract record LineEdit(string LineId);
 
@@ -45,3 +45,10 @@ public sealed record SetDelay(CommandAddress Target, string Delay) : LineEdit(Ta
 /// <paramref name="Gap"/>이 null이거나 0이면 간격을 걷는다.
 /// </summary>
 public sealed record SetGap(string LineId, string Anchor, string? Gap) : LineEdit(LineId);
+
+/// <summary>
+/// 확인(K8 · C7) — 연출 층의 대사 줄을 대사 층의 새 글로 갈아 적는다. 작가가 고친 글을 연출가가 보았다는 뜻이다 — 둘이 같아져
+/// "다시 볼 것"이 사라진다. <paramref name="Line"/>은 합치기가 지은 그 줄이다(<c>LayerComposer.CompareLine</c> — 새 글에 연출 층의 박자와
+/// 태그를 얹은 것, 줄 끝 문자 없이). 이 툴이 글을 짓지 않는다 — 줄 ID가 다르거나 커맨드의 읽기가 달라지면 거절한다.
+/// </summary>
+public sealed record AcceptText(string LineId, string Line) : LineEdit(LineId);

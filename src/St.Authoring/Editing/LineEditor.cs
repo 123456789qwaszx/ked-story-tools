@@ -242,6 +242,12 @@ public static partial class LineEditor
             throw new Refusal($"LineId '{CommandAddress.ShortLineId(id)}'가 이 대본에 둘이다 — 어느 줄인지 가를 수 없다");
         }
 
+        // 확인은 묶음이 아니라 대사 줄을 갈아 적는다 — 읽기만인 줄에서도 된다(커맨드를 건드리지 않는다).
+        if (edit is AcceptText accept)
+        {
+            return ApplyAccept(text, before, line, accept, specs);
+        }
+
         if (!IsEditable(line, out string reason))
         {
             throw new Refusal(reason);
@@ -319,6 +325,74 @@ public static partial class LineEditor
             : null;
 
         return EditOutcome.Applied(after, now, target, removed, added, warnings);
+    }
+
+    // ── 확인 (K8 · C7) ──────────────────────────────────────────────────────
+
+    // 대사 줄 하나를 받은 줄로 갈아 적는다. 줄 끝 문자는 있던 대로. 다른 줄의 읽기와 이 줄의 커맨드는 달라지지 않아야 한다.
+    private static EditOutcome ApplyAccept(string text, YarnFileRead before, LineRead line, AcceptText accept, StageCommandSpecTable specs)
+    {
+        if (accept.Line.Contains('\n') || accept.Line.Contains('\r'))
+        {
+            throw new Refusal("확인할 줄이 한 줄이 아니다");
+        }
+
+        int start = line.Block.Start + line.Block.Length;
+        int end = text.IndexOf('\n', start);
+        end = end < 0 ? text.Length : end;
+
+        if (end > start && text[end - 1] == '\r')
+        {
+            end--;
+        }
+
+        if (text.AsSpan(start, end - start).SequenceEqual(accept.Line.AsSpan()))
+        {
+            return EditOutcome.Unchanged(text, line, null);
+        }
+
+        string after = string.Concat(text.AsSpan(0, start), accept.Line, text.AsSpan(end));
+        YarnFileRead reread = YarnLineReader.ReadFile(after, SourceName, specs);
+
+        if (reread.Lines.Count != before.Lines.Count || !reread.TryGet(line.LineId, out LineRead now) || now.Line != line.Line)
+        {
+            throw new Refusal("확인한 글에서 대사 줄이나 줄 ID가 달라졌다 — 쓰지 않았다");
+        }
+
+        for (int i = 0; i < before.Lines.Count; i++)
+        {
+            if (!ReferenceEquals(before.Lines[i], line) && Signature(before.Lines[i]) != Signature(reread.Lines[i]))
+            {
+                throw new Refusal($"확인한 글에서 다른 줄({before.Lines[i].Line}행)의 읽기가 달라졌다 — 쓰지 않았다");
+            }
+        }
+
+        if (Commands(now) != Commands(line))
+        {
+            throw new Refusal("확인한 글에서 이 줄의 커맨드가 달라졌다 — 쓰지 않았다");
+        }
+
+        List<string> warnings = [];
+
+        foreach (string problem in NewProblems(before, reread))
+        {
+            if (IsUnusedMarker(problem))
+            {
+                warnings.Add(problem);
+                continue;
+            }
+
+            throw new Refusal($"깨진 yarn이 된다 — 쓰지 않았다: {problem}");
+        }
+
+        return EditOutcome.Applied(after, now, null, null, null, warnings);
+
+        // 앵커마다의 커맨드 — 글의 자리(스텝의 글)는 바뀌므로 뺀다.
+        static string Commands(LineRead read)
+            => string.Join('\n', read.Steps.Where(s => s.Commands.Count > 0 || s.HasGap).Select(s =>
+                string.Create(CultureInfo.InvariantCulture, $"{s.Name}|{s.Gap}|") +
+                string.Join(';', s.Commands.Select(c =>
+                    string.Create(CultureInfo.InvariantCulture, $"{c.Name} {string.Join(' ', c.Args)} +{c.Delay}")))));
     }
 
     // ── 값 바꾸기 ───────────────────────────────────────────────────────────

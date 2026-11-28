@@ -354,8 +354,66 @@ public sealed class EditSession
 
     private ScriptLibrary Read() => ScriptLibrary.Open(Root, Specs, ProgressionFolder);
 
+    /// <summary>
+    /// 이 줄의 할 일(C7) — 대사 층의 그 줄과 견준 것과, 연출이 하나도 없는가. 층이 없거나 줄 ID가 없으면 null.
+    /// </summary>
+    public LineState? StateOf(LibraryLine line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+
+        if (Layers is null || line.Read.LineId is not { } lineId)
+        {
+            return null;
+        }
+
+        LineRead read = line.Read;
+        bool bare = read.Immediate.Count == 0 && read.Unanchored.Count == 0 && read.Steps.All(s => s.Commands.Count == 0 && !s.HasGap);
+
+        // 대사 층에 없는 줄은 다음 합치기에서 보관소로 간다 — 견줄 것이 없다.
+        LineCompare? compare = Composed?.DialogueLines.TryGetValue(lineId, out string? dialogue) == true
+            ? LayerComposer.CompareLine(RawLine(line.File.Script.Text, read), dialogue)
+            : null;
+
+        return new LineState(compare is { Same: false } ? compare : null, bare);
+    }
+
+    /// <summary>
+    /// 확인(C7) — 그 줄의 연출 층 대사를 대사 층의 새 글로 갈아 적는다. 되돌리기 한 칸이다. 다시 볼 것이 없는 줄이면 바뀌지 않는다.
+    /// </summary>
+    public EditOutcome Accept(LibraryLine line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+
+        return StateOf(line)?.Review is { Accepted: { } accepted }
+            ? Apply(line.File.Script.Path, new AcceptText(line.Read.LineId, accepted))
+            : EditOutcome.Unchanged(line.File.Script.Text, line.Read, null);
+    }
+
+    /// <summary>
+    /// 덮어쓰기(C6) — 손으로 고친 게임 yarn도 덮어 다시 합친다. 사람이 고른 때에만 부른다. 다 들어갔으면 true.
+    /// </summary>
+    public bool Overwrite()
+    {
+        if (Layers is null)
+        {
+            return false;
+        }
+
+        Recompose(force: true);
+        Revision++;
+        return ComposeProblem is null;
+    }
+
+    // 그 대사 줄의 물리 줄 — 줄 끝 문자까지.
+    private static string RawLine(string text, LineRead read)
+    {
+        int start = read.Block.Start + read.Block.Length;
+        int end = text.IndexOf('\n', start);
+        return end < 0 ? text[start..] : text[start..(end + 1)];
+    }
+
     /// <summary>합친다 — 층이 없으면 아무것도 하지 않는다. 합치기가 연출 층의 파일을 고쳤으면(대사 층이 바뀌었다) true.</summary>
-    private bool Compose()
+    private bool Compose(bool force = false)
     {
         if (Layers is null)
         {
@@ -364,7 +422,7 @@ public sealed class EditSession
 
         try
         {
-            Composed = ComposeFolder.Run(Root, Layers, specs: Specs);
+            Composed = ComposeFolder.Run(Root, Layers, force, specs: Specs);
             ComposeProblem = !Composed.Result.Ok
                 ? $"합치지 못했다 — {string.Join(" · ", Composed.Result.Errors)}"
                 : Composed.Files.FirstOrDefault(f => f.Change == FileChange.Held) is { } held
@@ -388,9 +446,9 @@ public sealed class EditSession
     }
 
     // 연출 층을 고친 뒤 — 게임 yarn이 따라온다. 그 김에 대사 층의 변화가 들어왔으면 바깥의 고침처럼 다시 읽는다.
-    private void Recompose()
+    private void Recompose(bool force = false)
     {
-        if (Compose())
+        if (Compose(force))
         {
             Library = Read();
             Adopt();

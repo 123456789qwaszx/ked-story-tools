@@ -134,8 +134,12 @@ public partial class MainWindow
         {
             Spacing = 6,
             Margin = new Thickness(8, 8, 8, 4),
-            Children = { pickers, _search, kinds, _onlyWithKind, _listCount },
+            Children = { pickers, _search, kinds, _onlyWithKind },
         };
+
+        // 연출 층을 열었을 때만 서는 "할 일" 필터와 덮어쓰기(K8 I4).
+        head.Children.AddRange(BuildTodoControls());
+        head.Children.Add(_listCount);
         DockPanel.SetDock(head, Dock.Top);
 
         return new DockPanel { Children = { head, _lines } };
@@ -294,7 +298,8 @@ public partial class MainWindow
             LibraryLine? selected = _lines.SelectedItem as LibraryLine ?? _currentLine;
             StoryScene? scene = Scene;
 
-            ListedEpisodes = scene?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null, Episode?.Id) ?? [];
+            ListedEpisodes = FilterTodo(scene?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null, Episode?.Id) ?? []);
+            RefreshTodo(scene);
 
             List<object> items = [];
 
@@ -396,6 +401,8 @@ public partial class MainWindow
                 Children = { Palette.Dot(kind, 7), new TextBlock { Text = count.ToString(), FontSize = 11, Foreground = Palette.Dim } },
             });
         }
+
+        AddTodoBadges(second, line);
 
         if (!line.Editable)
         {

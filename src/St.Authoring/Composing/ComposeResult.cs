@@ -29,6 +29,22 @@ public enum LineNoteKind
 public sealed record LineNote(
     LineNoteKind Kind, string LineId, string File, string Node, string? OldText = null, string? NewText = null, bool BeatsMoved = false);
 
+/// <summary>연출 층의 대사 줄 하나를 대사 층의 그 줄과 견준 것(C7) — 화면의 딱지와 「확인」이 이것을 쓴다.</summary>
+/// <param name="Same">화자와 글이 같다 — 볼 것이 없다.</param>
+/// <param name="BeatsMoved">글이 바뀌어 말 도중의 박자가 줄 끝으로 간다 — 박자 다시 놓을 것.</param>
+/// <param name="OldText">연출 층의 글(기준) — 박자 표시와 태그를 뺀 화자 + 글.</param>
+/// <param name="NewText">대사 층의 글.</param>
+/// <param name="Accepted">확인하면 연출 층에 설 줄(줄 끝 문자 없이) — 게임 yarn의 그 줄과 같다. 같은 줄이면 null.</param>
+public sealed record LineCompare(bool Same, bool BeatsMoved, string OldText, string NewText, string? Accepted);
+
+/// <summary>화면이 줄 하나에 다는 할 일(C7).</summary>
+/// <param name="Review">다시 볼 것 — 작가가 글이나 화자를 고쳤다. 볼 것이 없으면 null. 박자 다시 놓을 것은 여기 딸린다(<see cref="LineCompare.BeatsMoved"/>).</param>
+/// <param name="NoStaging">연출 없음 — 이 줄에 커맨드가 하나도 없다.</param>
+public sealed record LineState(LineCompare? Review, bool NoStaging)
+{
+    public bool BeatsMoved => Review?.BeatsMoved == true;
+}
+
 /// <summary>
 /// 합치기의 결과(docs/PLAN.md §2.5 I1). 글만 든다 — 디스크에 쓰는 일은 부르는 쪽의 것이다.
 /// 세 묶음은 파일 이름 → 글이고, <b>글이 null이면 그 파일은 없어져야 한다</b>(대사 층에서 장면이 사라졌다 · 보관소가 비었다).

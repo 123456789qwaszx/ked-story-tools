@@ -102,6 +102,9 @@ public sealed record ComposeFileNote(string Layer, string Name, FileChange Chang
 public sealed record ComposeOutcome(
     ComposeResult Result, IReadOnlyList<ComposeFileNote> Files, int Scenes, int Lines, int Unchanged, bool DryRun)
 {
+    /// <summary>대사 층의 줄 — 줄 ID(<c>line:abc</c>) → 그 물리 줄. 화면이 연출 층의 줄과 견주어 딱지를 단다(C7).</summary>
+    public IReadOnlyDictionary<string, string> DialogueLines { get; init; } = new Dictionary<string, string>();
+
     /// <summary>멈춘 파일이 있다 — 그 장면은 게임에 들어가지 않았다.</summary>
     public bool Held => Files.Any(f => f.Change == FileChange.Held);
 }
@@ -149,7 +152,17 @@ public static class ComposeFolder
         Dictionary<string, ScriptFile> staging = ReadLayer(stagingFolder, retired: false);
         Dictionary<string, ScriptFile> retired = ReadLayer(stagingFolder, retired: true);
 
-        int lines = dialogue.Values.Sum(f => LayerScript.Parse(f.Text).Nodes.Sum(n => n.Items.Count(i => i.LineId is not null)));
+        Dictionary<string, string> dialogueLines = new(StringComparer.Ordinal);
+
+        foreach (LayerItem item in dialogue.Values.SelectMany(f => LayerScript.Parse(f.Text).Nodes).SelectMany(n => n.Items))
+        {
+            if (item.LineId is { } lineId)
+            {
+                dialogueLines.TryAdd(lineId, item.Raw);
+            }
+        }
+
+        int lines = dialogueLines.Count;
 
         // 대사 층이 비었으면 연출 층이 통째로 보관소로 간다 — 폴더를 잘못 짚은 것으로 보고 멈춘다.
         if (dialogue.Count == 0)
@@ -243,7 +256,7 @@ public static class ComposeFolder
             WriteRecord(stagingFolder, newRecord);
         }
 
-        return new ComposeOutcome(result, files, dialogue.Count, lines, unchanged, dryRun);
+        return new ComposeOutcome(result, files, dialogue.Count, lines, unchanged, dryRun) { DialogueLines = dialogueLines };
 
         // 층의 파일 하나 — 바이트가 다를 때만 쓰고, 글이 없으면 걷는다.
         void Put(string layer, string path, string name, string? text, bool bom)

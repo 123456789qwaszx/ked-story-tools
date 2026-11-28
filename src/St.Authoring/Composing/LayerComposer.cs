@@ -262,6 +262,21 @@ public static partial class LayerComposer
         return errors.Count > 0 ? ComposeResult.Rejected(errors) : new ComposeResult(game, newStaging, newRetired, notes, []);
     }
 
+    /// <summary>
+    /// 연출 층의 대사 줄(물리 줄 하나)을 대사 층의 그 줄과 견준다 — 합치기가 그 줄을 어떻게 낼지와 같은 셈이다.
+    /// </summary>
+    public static LineCompare CompareLine(string stagingLine, string dialogueLine)
+    {
+        ArgumentNullException.ThrowIfNull(stagingLine);
+        ArgumentNullException.ThrowIfNull(dialogueLine);
+
+        LineText basis = LineText.Parse(stagingLine);
+        LineText line = LineText.Parse(dialogueLine);
+        string? rebuilt = Carry(line, basis, out bool beatsMoved);
+
+        return new LineCompare(rebuilt is null, beatsMoved, basis.Plain, line.Plain, rebuilt?[..^line.Eol.Length]);
+    }
+
     /// <summary>줄 하나가 어느 파일 · 어느 노드에 있는가.</summary>
     private sealed record Held(string File, LayerNode Node, LayerItem Item);
 
