@@ -25,6 +25,9 @@ namespace St.Authoring.Editing;
 /// </summary>
 public sealed class EditSession
 {
+    /// <summary>보관소의 줄 하나와 그것이 든 보관소 파일.</summary>
+    public sealed record ShelfEntry(string Path, ShelvedLine Line);
+
     private readonly Dictionary<string, FileState> _files = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FileStamp> _stamps = new(StringComparer.Ordinal);
     private readonly List<UndoStep> _undo = [];
@@ -290,6 +293,19 @@ public sealed class EditSession
 
     private static string? ReadOrNull(string path) => File.Exists(path) ? File.ReadAllText(path) : null;
 
+    // 비운 보관소는 파일을 걷는다 — 그 밖에는 쓴다.
+    private static void WriteOrRemove(string path, string text)
+    {
+        if (text.Length == 0 && LayerComposer.IsRetiredName(Path.GetFileName(path)))
+        {
+            File.Delete(path);
+        }
+        else
+        {
+            File.WriteAllText(path, text);
+        }
+    }
+
     // 모션 파일을 고치기 전으로 — 우리가 새로 만든 파일이면 지운다.
     private static void Restore(MotionChange change)
     {
@@ -420,6 +436,86 @@ public sealed class EditSession
     // 박자를 놓을 줄(줄 끝 문자 없이) — 다시 볼 줄이면 확인하면 설 줄(새 글), 아니면 연출 층의 그 줄.
     private string BeatSource(LibraryLine line)
         => StateOf(line)?.Review?.Accepted ?? RawLine(line.File.Script.Text, line.Read).TrimEnd('\n', '\r');
+
+    /// <summary>보관소의 줄 — 대사 층에서 사라진 줄과 그 연출(C3). 층이 없으면 빈 목록.</summary>
+    public IReadOnlyList<ShelfEntry> Shelved()
+    {
+        if (Layers is null || !Directory.Exists(Root))
+        {
+            return [];
+        }
+
+        try
+        {
+            return Directory.GetFiles(Root, "*" + LayerComposer.RetiredSuffix)
+                .Order(StringComparer.Ordinal)
+                .SelectMany(path => Shelf.Read(File.ReadAllText(path)).Select(line => new ShelfEntry(path, line)))
+                .ToList();
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 이 줄로 옮기기(C3) — 보관한 연출을 그 줄의 묶음 뒤에 덧붙이고 보관소에서 뺀다. 두 파일이 되돌리기 한 칸이다.
+    /// 묶음이 가리키는 박자가 그 줄에 없으면 표지가 줄 끝에 선다 — 박자 놓기로 다시 놓는다.
+    /// </summary>
+    public EditOutcome Adopt(LibraryLine target, ShelfEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(entry);
+
+        string path = target.File.Script.Path;
+
+        if (target.Read.LineId is not { } lineId)
+        {
+            return EditOutcome.Refused(target.File.Script.Text, "LineId(#line:…)가 없는 줄이다 — 주소가 없어 고칠 수 없다");
+        }
+
+        try
+        {
+            FileState state = Current(path);
+
+            if (ReadOrNull(entry.Path) is not { } before || Shelf.Read(before).All(l => l.LineId != entry.Line.LineId))
+            {
+                return EditOutcome.Refused(state.Editor.Text, "보관소에 그 줄이 없다 — 다시 읽는다(F5)");
+            }
+
+            if (!YarnLineReader.ReadFile(state.Editor.Text, path, Specs).TryGet(lineId, out LineRead now))
+            {
+                return EditOutcome.Refused(state.Editor.Text, "옮겨 붙일 줄이 대본에 없다");
+            }
+
+            (string lead, string line) = Shelf.Onto(RawLine(state.Editor.Text, now), entry.Line);
+            EditOutcome outcome = state.Editor.Apply([new AdoptStaging(lineId, lead, line)]);
+
+            if (outcome is not { Ok: true, Changed: true })
+            {
+                return outcome;
+            }
+
+            if (Save(state) is { } failure)
+            {
+                state.Editor.Undo();
+                return EditOutcome.Refused(state.Editor.Text, failure);
+            }
+
+            string after = Shelf.Without(before, entry.Line.LineId);
+            WriteOrRemove(entry.Path, after);
+
+            _undo.Add(new UndoStep(path, new MotionChange(entry.Path, before, after)));
+            _redo.Clear();
+            Swap(state);
+            Recompose();
+            return outcome;
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            return EditOutcome.Refused(string.Empty, $"보관소에서 옮기지 못했다 — {exception.Message}");
+        }
+    }
 
     /// <summary>
     /// 덮어쓰기(C6) — 손으로 고친 게임 yarn도 덮어 다시 합친다. 사람이 고른 때에만 부른다. 다 들어갔으면 true.
@@ -556,7 +652,8 @@ public sealed class EditSession
             {
                 try
                 {
-                    if (ReadOrNull(motion.Path) != (undo ? motion.After : motion.Before))
+                    // 없는 파일과 빈 파일은 같게 본다 — 비운 보관소는 합치기가 걷는다.
+                    if ((ReadOrNull(motion.Path) ?? string.Empty) != ((undo ? motion.After : motion.Before) ?? string.Empty))
                     {
                         continue;
                     }
@@ -603,7 +700,7 @@ public sealed class EditSession
                     }
                     else
                     {
-                        File.WriteAllText(change.Path, change.After);
+                        WriteOrRemove(change.Path, change.After);
                     }
                 }
             }

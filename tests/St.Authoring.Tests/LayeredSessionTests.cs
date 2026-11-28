@@ -212,4 +212,46 @@ public class LayeredSessionTests
         // 놓을 수 없는 자리는 거절하고 쓰지 않는다.
         Assert.False(session.PlaceBeat(Lines(session).Single(l => l.Id == "ln_a2"), 0, 0).Ok);
     }
+
+    [Fact]
+    public void 보관소의_연출을_새_줄로_옮기면_두_파일이_한_칸으로_되돌려진다()
+    {
+        Story story = Make();
+        EditSession session = EditSession.Open(story.Staging);
+
+        // 작가가 줄을 지우고 새 줄로 다시 썼다 — 줄 ID가 달라 연출이 저절로 돌아오지 않는다.
+        File.WriteAllText(story.DialogueFile, ComposeTests.Dialogue.Replace(
+            "가람: 잘 부탁드립니다, 정말로요. #line:ln_a2\n", "가람: 정말 잘 부탁드려요. #line:ln_b1\n"));
+        Assert.True(session.Refresh());
+
+        EditSession.ShelfEntry entry = Assert.Single(session.Shelved());
+        Assert.Equal("line:ln_a2", entry.Line.LineId);
+        Assert.Equal(story.RetiredFile, entry.Path);
+        string shelf = File.ReadAllText(story.RetiredFile);
+
+        EditOutcome outcome = session.Adopt(Lines(session).Single(l => l.Id == "ln_b1"), entry);
+        Assert.True(outcome.Changed, outcome.Error);
+
+        string moved = "<<at start face s1 05>>\n<<at a face_swap s1 03 13fr>>\n<<at end emoji s1 star>>\n가람: 정말 잘 부탁드려요.[beat=a/] #line:ln_b1\n";
+        Assert.Contains(moved, File.ReadAllText(story.StagingFile));
+        Assert.Contains(moved, File.ReadAllText(story.GameFile));
+        Assert.False(File.Exists(story.RetiredFile));
+        Assert.Empty(session.Shelved());
+        Assert.Null(session.ComposeProblem);
+
+        // 줄 끝에 선 박자는 놓을 수 있다.
+        LibraryLine line = Lines(session).Single(l => l.Id == "ln_b1");
+        Assert.Equal("face_swap", line.Read.Step("a").Commands.Single().Name);
+        Assert.True(session.BeatsOf(line)!.Beats.Single().Movable);
+
+        // 되돌리기 한 칸 — 연출 층과 보관소가 함께 돌아온다.
+        Assert.True(session.Undo());
+        Assert.DoesNotContain("face_swap", File.ReadAllText(story.StagingFile));
+        Assert.Equal(shelf, File.ReadAllText(story.RetiredFile));
+        Assert.Single(session.Shelved());
+
+        Assert.True(session.Redo());
+        Assert.Contains(moved, File.ReadAllText(story.GameFile));
+        Assert.False(File.Exists(story.RetiredFile));
+    }
 }

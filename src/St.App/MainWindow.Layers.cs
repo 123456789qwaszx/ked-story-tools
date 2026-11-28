@@ -263,4 +263,115 @@ public partial class MainWindow
         _status.Text = done ? "게임 yarn을 덮어썼다 — 손으로 고친 것은 사라졌다" : _session.ComposeProblem ?? string.Empty;
         return done;
     }
+
+    // ── 보관소 (K8 I6 · C3) ─────────────────────────────────────────────────
+
+    private bool _shelfOpen;
+
+    /// <summary>보관소의 줄 — 대사 층에서 사라진 줄과 그 연출. 층이 없으면 빈 목록.</summary>
+    internal IReadOnlyList<EditSession.ShelfEntry> ShelfLines { get; private set; } = [];
+
+    /// <summary>
+    /// 보관소의 칸 — 고른 줄 아래에 접힌 채 선다. 펴면 보관한 줄마다 옛 글과 「이 줄로 옮기기」.
+    /// 작가가 줄을 지우고 새 줄로 다시 썼을 때(줄 ID가 달라 저절로 돌아오지 않는다) 연출을 새 줄로 겨눈다.
+    /// </summary>
+    private Control? BuildShelf()
+    {
+        ShelfLines = _session?.Shelved() ?? [];
+
+        if (ShelfLines.Count == 0)
+        {
+            return null;
+        }
+
+        Button toggle = new()
+        {
+            Content = $"{(_shelfOpen ? "▾" : "▸")} 보관소 {ShelfLines.Count} — 대사 층에서 사라진 줄의 연출",
+            FontSize = 12,
+            Padding = new Thickness(8, 3),
+            HorizontalAlignment = HorizontalAlignment.Left,
+        };
+        toggle.Click += (_, _) => SetShelfOpen(!_shelfOpen);
+
+        StackPanel panel = new() { Spacing = 8, Children = { toggle } };
+
+        if (_shelfOpen)
+        {
+            foreach (EditSession.ShelfEntry entry in ShelfLines)
+            {
+                ShelvedLine shelved = entry.Line;
+                Button adopt = new() { Content = "이 줄로 옮기기", FontSize = 12, Padding = new Thickness(8, 3), VerticalAlignment = VerticalAlignment.Center };
+                adopt.Click += (_, _) => AdoptShelved(CommandAddress.ShortLineId(shelved.LineId));
+
+                StackPanel text = new()
+                {
+                    Spacing = 2,
+                    Children =
+                    {
+                        new TextBlock
+                        {
+                            Text = shelved.Speaker.Length > 0 ? $"{shelved.Speaker}  {shelved.Body}" : shelved.Body,
+                            FontSize = 13,
+                            Foreground = Palette.Dim,
+                            TextWrapping = TextWrapping.Wrap,
+                        },
+                        new TextBlock
+                        {
+                            Text = $"{CommandAddress.ShortLineId(shelved.LineId)} · {shelved.Node} · 커맨드 {shelved.Commands}개",
+                            FontFamily = Palette.Mono,
+                            FontSize = 11,
+                            Foreground = Palette.Faint,
+                        },
+                    },
+                };
+
+                DockPanel row = new();
+                DockPanel.SetDock(adopt, Dock.Right);
+                row.Children.Add(adopt);
+                row.Children.Add(text);
+                panel.Children.Add(row);
+            }
+
+            panel.Children.Add(new TextBlock
+            {
+                Text = "고른 줄의 연출 뒤에 덧붙는다. 묶음이 가리키는 박자가 그 줄에 없으면 표지가 줄 끝에 선다 — 박자 놓기로 다시 놓는다",
+                FontSize = 11,
+                Foreground = Palette.Faint,
+                TextWrapping = TextWrapping.Wrap,
+            });
+        }
+
+        return new Border { BorderBrush = Palette.Line, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 10, 0, 0), Child = panel };
+    }
+
+    /// <summary>보관소의 칸을 펴거나 접는다.</summary>
+    internal void SetShelfOpen(bool open)
+    {
+        _shelfOpen = open;
+        ShowSelectedLine();
+    }
+
+    /// <summary>보관소의 그 줄(LineId)의 연출을 고른 줄로 옮긴다 — 되돌리기 한 칸. 옮기지 못했으면 false.</summary>
+    internal bool AdoptShelved(string lineId)
+    {
+        if (_session is null || _lines.SelectedItem is not LibraryLine line
+            || ShelfLines.FirstOrDefault(e => CommandAddress.ShortLineId(e.Line.LineId) == lineId) is not { } entry)
+        {
+            return false;
+        }
+
+        EditOutcome outcome = _session.Adopt(line, entry);
+
+        if (outcome is not { Ok: true, Changed: true })
+        {
+            _status.Text = $"옮기지 못했다 — {DirectorText.Clean(outcome.Error)}";
+            return false;
+        }
+
+        ReloadKeepingSelection();
+        _status.Text = _session.ComposeProblem is { } held
+            ? $"연출 층에 썼다 — {held}"
+            : "보관소의 연출을 이 줄에 붙였다 — 없던 박자는 줄 끝에 섰다 · 되돌리기 Ctrl+Z";
+        return true;
+    }
 }

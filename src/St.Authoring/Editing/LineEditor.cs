@@ -243,9 +243,14 @@ public static partial class LineEditor
         }
 
         // 확인은 묶음이 아니라 대사 줄을 갈아 적는다 — 읽기만인 줄에서도 된다(커맨드를 건드리지 않는다).
-        if (edit is AcceptText or PlaceBeat)
+        switch (edit)
         {
-            return ApplyAccept(text, before, line, edit is PlaceBeat place ? place.Line : ((AcceptText)edit).Line, specs);
+            case AcceptText accept:
+                return ApplyAccept(text, before, line, accept.Line, string.Empty, specs);
+            case PlaceBeat place:
+                return ApplyAccept(text, before, line, place.Line, string.Empty, specs);
+            case AdoptStaging adopt:
+                return ApplyAccept(text, before, line, adopt.Line, adopt.Lead, specs);
         }
 
         if (!IsEditable(line, out string reason))
@@ -330,7 +335,9 @@ public static partial class LineEditor
     // ── 확인 · 박자 놓기 (K8 · C7 · L5) ─────────────────────────────────────
 
     // 대사 줄 하나를 받은 줄로 갈아 적는다. 줄 끝 문자는 있던 대로. 다른 줄의 읽기와 이 줄의 커맨드는 달라지지 않아야 한다.
-    private static EditOutcome ApplyAccept(string text, YarnFileRead before, LineRead line, string accepted, StageCommandSpecTable specs)
+    // lead가 있으면(보관소에서 옮기기) 그 묶음을 대사 줄 바로 앞 — 지금 묶음의 뒤 — 에 넣는다. 그때는 커맨드가 늘어난다.
+    private static EditOutcome ApplyAccept(
+        string text, YarnFileRead before, LineRead line, string accepted, string lead, StageCommandSpecTable specs)
     {
         if (accepted.Contains('\n') || accepted.Contains('\r'))
         {
@@ -346,15 +353,17 @@ public static partial class LineEditor
             end--;
         }
 
-        if (text.AsSpan(start, end - start).SequenceEqual(accepted.AsSpan()))
+        if (lead.Length == 0 && text.AsSpan(start, end - start).SequenceEqual(accepted.AsSpan()))
         {
             return EditOutcome.Unchanged(text, line, null);
         }
 
-        string after = string.Concat(text.AsSpan(0, start), accepted, text.AsSpan(end));
+        string after = string.Concat(text.AsSpan(0, start), lead, accepted, text.AsSpan(end));
         YarnFileRead reread = YarnLineReader.ReadFile(after, SourceName, specs);
 
-        if (reread.Lines.Count != before.Lines.Count || !reread.TryGet(line.LineId, out LineRead now) || now.Line != line.Line)
+        int added = lead.Count(c => c == '\n');
+
+        if (reread.Lines.Count != before.Lines.Count || !reread.TryGet(line.LineId, out LineRead now) || now.Line != line.Line + added)
         {
             throw new Refusal("확인한 글에서 대사 줄이나 줄 ID가 달라졌다 — 쓰지 않았다");
         }
@@ -367,7 +376,12 @@ public static partial class LineEditor
             }
         }
 
-        if (Commands(now) != Commands(line))
+        if (lead.Length > 0 && (now.Body != line.Body || now.Speaker != line.Speaker))
+        {
+            throw new Refusal("옮겨 붙인 글에서 이 줄의 대사가 달라졌다 — 쓰지 않았다");
+        }
+
+        if (lead.Length == 0 && Commands(now) != Commands(line))
         {
             throw new Refusal("확인한 글에서 이 줄의 커맨드가 달라졌다 — 쓰지 않았다");
         }

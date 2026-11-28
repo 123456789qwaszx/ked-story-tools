@@ -39,7 +39,7 @@ ST_RENDER_DIR=<폴더> dotnet test tests/St.App.Tests -c Release
 - 소유자가 정하고 Claude가 분석 · 구현한다 — 제안과 결정을 구분해 적는다(`docs/PLAN.md` §2).
 - **한 번에 하나.** 단계마다 전체 테스트가 통과한 채로 커밋한다.
 - `TreatWarningsAsErrors` — 안 쓰는 필드 · using · 인자는 빌드가 막는다.
-- **K8(대사 층과 연출 층 — `docs/PLAN.md` §2.5 — I5까지 지었다: 합치기 · `st compose` · 연출 층 폴더를 열면 고칠 때마다 합친다 · 할 일의 딱지와 필터 · 확인 · 덮어쓰기 · 박자 놓기. 화면은 `MainWindow.Layers.cs` · `MainWindow.Beats.cs`)**: 연출 층(`staging/*.yarn`)을 쓰는 길은 `LineEditor`와 합치기(뼈대 맞추기), 게임 yarn을 쓰는 길은 합치기뿐이다. 합치기는 연출 쪽 글을 바이트 그대로 옮긴다 — 왕복의 시험이 지킨다. 아래 두 관습은 연출 층에 그대로 선다.
+- **K8(대사 층과 연출 층 — `docs/PLAN.md` §2.5 — I6까지 지었다: 합치기 · `st compose` · 연출 층 폴더를 열면 고칠 때마다 합친다 · 할 일의 딱지와 필터 · 확인 · 덮어쓰기 · 박자 놓기 · 보관소에서 옮기기. 남은 것은 재현 30편 옮기기(I7). 화면은 `MainWindow.Layers.cs` · `MainWindow.Beats.cs`)**: 연출 층(`staging/*.yarn`)을 쓰는 길은 `LineEditor`와 합치기(뼈대 맞추기), 게임 yarn을 쓰는 길은 합치기뿐이다. 합치기는 연출 쪽 글을 바이트 그대로 옮긴다 — 왕복의 시험이 지킨다. 아래 두 관습은 연출 층에 그대로 선다.
 - **yarn을 쓰는 길은 `LineEditor` 하나다** — 화면도 CLI도 조작(`LineEdit`)을 지난다. 조작 하나 = 되돌리기 한 칸, 같은 값은 기록하지 않는다(`StagingEditor.Revision`). 화면은 `EditSession`을 지나 조작마다 바로 파일에 쓴다 — 바깥에서 바뀐 파일은 덮어쓰지 않는다.
 - **모션 파일(`motions/2`)을 쓰는 길은 `Motions/MotionFile` + `EditSession`이다** — 고친 모션만 다시 쓰고 나머지는 바이트 하나 바뀌지 않는다. 모두가 쓰는 `motions.json`은 고치지 않는다(줄의 것으로 풀어 그 편의 파일에서 고친다 — `docs/PLAN.md` §4.8).
 - **`src/Mt.Graph` · `src/Mt.Graph.Avalonia`는 `ked-motion-tool-characterRig`의 사본이다 — 고치지 않는다**(코어 사본과 같다. 필요한 것은 그쪽에서 먼저 정한다 — `src/Mt.Graph/vendoring.md`). 이 툴의 것은 `Motions/MotionGraphEditor`다.

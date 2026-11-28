@@ -374,7 +374,7 @@ public static partial class LayerComposer
     }
 
     // 되살려서 비게 된 보관소의 노드를 걷는다.
-    private static void Prune(LayerScript shelf)
+    internal static void Prune(LayerScript shelf)
     {
         shelf.Nodes.RemoveAll(n => n.Items.Count == 0 && !n.TailHasCommand);
 

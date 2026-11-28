@@ -168,6 +168,10 @@ internal sealed partial class LineText
             : null;
     }
 
+    /// <summary>박자 표시를 더한 줄(줄 끝 문자 없이) — 글 첫머리(화자 다음)와 글 끝에. 글은 그대로다.</summary>
+    public string WithBeats(string head, string end)
+        => Indent + Text[.._rawBodyStart] + head + Text[_rawBodyStart..] + end + Tail;
+
     // 박자 표시를 빼며 읽는다. rawOf[i]는 뺀 글의 i번째 글자가 원문의 어디였는가.
     private static (string Plain, List<Beat> Beats, List<int> RawOf) Scan(string text)
     {

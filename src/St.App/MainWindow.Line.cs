@@ -132,6 +132,11 @@ public partial class MainWindow
             _lineHost.Children.Add(new TextBlock { Text = $"문제 — {DirectorText.Clean(problem)}", Foreground = Palette.Warning, FontSize = 12, TextWrapping = TextWrapping.Wrap });
         }
 
+        if (BuildShelf() is { } shelf)
+        {
+            _lineHost.Children.Add(shelf);
+        }
+
         RefreshInspector();
     }
 

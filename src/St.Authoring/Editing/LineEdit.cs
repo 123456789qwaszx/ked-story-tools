@@ -3,7 +3,7 @@ using Ked.Presentation.Core;
 namespace St.Authoring.Editing;
 
 /// <summary>
-/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯, 연출 층의 확인(K8 · C7)과 박자 놓기(K8 · L5)까지 여덟이다.
+/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯, 연출 층의 확인(K8 · C7) · 박자 놓기(K8 · L5) · 보관소에서 옮기기(K8 · C3)까지 아홉이다.
 /// 앵커를 새로 만들거나 옮기는 일은 없다: 표지는 대사 글 안에 있고, 이 툴은 글을 짓지 않는다 — 확인은 디렉터의 글을 받아 적을 뿐이다.
 /// </summary>
 public abstract record LineEdit(string LineId);
@@ -59,3 +59,10 @@ public sealed record AcceptText(string LineId, string Line) : LineEdit(LineId);
 /// 그 줄은 확인된 것이다(C7). 줄 ID가 다르거나 커맨드의 읽기가 달라지면 거절한다.
 /// </summary>
 public sealed record PlaceBeat(string LineId, string Line) : LineEdit(LineId);
+
+/// <summary>
+/// 보관소에서 옮기기(K8 · C3) — 보관한 묶음을 이 줄의 묶음 뒤에 덧붙이고, 묶음이 가리키는 박자의 표지를 이 줄의 글에 더한다.
+/// <paramref name="Lead"/>와 <paramref name="Line"/>은 <c>Shelf.Onto</c>가 지은 것이다(묶음의 원문 · 표지를 더한 대사 줄, 줄 끝 문자 없이).
+/// 이 줄의 글과 지금의 묶음은 그대로다. 깨진 yarn이 되면(같은 앵커의 간격이 둘 …) 거절한다.
+/// </summary>
+public sealed record AdoptStaging(string LineId, string Lead, string Line) : LineEdit(LineId);

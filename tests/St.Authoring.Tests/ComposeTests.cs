@@ -335,4 +335,31 @@ public class ComposeTests
         Assert.Equal("가람: 하나 둘 셋", YarnCommandTextExtractor.StripLineMarkers("가람: [beat=in/]하나 [beat=a/]둘 셋", markers));
         Assert.Equal(new[] { 4, 7 }, markers.Select(m => m.Position));
     }
+
+    // ── 보관소 (K8 I6) ──────────────────────────────────────────────────────
+
+    [Fact]
+    public void 보관소의_줄을_읽고_다른_줄에_붙일_글을_짓는다()
+    {
+        string shelf = "title: ch01_s01_ep01\n---\n" + LeadA2 + LineA2 + "===\n";
+
+        ShelvedLine line = Assert.Single(Shelf.Read(shelf));
+        Assert.Equal("line:ln_a2", line.LineId);
+        Assert.Equal("ch01_s01_ep01", line.Node);
+        Assert.Equal("가람", line.Speaker);
+        Assert.Equal("잘 부탁드립니다, 정말로요.", line.Body);
+        Assert.Equal(3, line.Commands);
+
+        // 묶음은 머리의 빈 줄을 두고 오고, 묶음이 가리키는 박자 a는 그 줄의 글 끝에 선다. 글은 그대로다.
+        (string lead, string moved) = Shelf.Onto("나래: [beat=in/]새로 쓴 줄이에요. #line:ln_b1\n", line);
+        Assert.Equal("<<at start face s1 05>>\n<<at a face_swap s1 03 13fr>>\n<<at end emoji s1 star>>\n", lead);
+        Assert.Equal("나래: [beat=in/]새로 쓴 줄이에요.[beat=a/] #line:ln_b1", moved);
+
+        // 그 줄에 이미 있는 박자는 더하지 않는다.
+        Assert.Equal("나래: 새로 [beat=a/]쓴 줄. #line:ln_b1", Shelf.Onto("나래: 새로 [beat=a/]쓴 줄. #line:ln_b1", line).Line);
+
+        // 뺀 보관소 — 남은 것이 없으면 빈 글이다.
+        Assert.Equal(string.Empty, Shelf.Without(shelf, "line:ln_a2"));
+        Assert.Equal(shelf, Shelf.Without(shelf, "line:ln_zz"));
+    }
 }

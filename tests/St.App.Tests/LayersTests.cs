@@ -1,4 +1,5 @@
 using St.Authoring.Composing;
+using St.Authoring.Editing;
 
 namespace St.App.Tests;
 
@@ -31,7 +32,7 @@ public class LayersTests
         public string GameFile => Path.Combine(Game, Scene);
     }
 
-    private static MainWindow Open(out Story story, bool layered = true)
+    private static MainWindow Open(out Story story, bool layered = true, string dialogueText = Dialogue)
     {
         string root = Directory.CreateTempSubdirectory("st-k8-i4-").FullName;
         string dialogue = Path.Combine(root, "story", "exported", "yarn");
@@ -39,7 +40,7 @@ public class LayersTests
         Directory.CreateDirectory(dialogue);
         Directory.CreateDirectory(story.Staging);
         Directory.CreateDirectory(story.Game);
-        File.WriteAllText(Path.Combine(dialogue, Scene), Dialogue);
+        File.WriteAllText(Path.Combine(dialogue, Scene), dialogueText);
         File.WriteAllText(story.StagingFile, Staging);
 
         if (layered)
@@ -198,6 +199,46 @@ public class LayersTests
             Assert.True(window.SelectLine("ln_a1"));
             Assert.Null(window.ShownBeats);
             Assert.False(window.PickBeat("in"));
+        });
+    }
+
+    [Fact]
+    public void 보관소를_펴서_이_줄로_옮기면_연출이_붙고_보관소에서_빠진다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            // 작가가 둘째 줄을 지우고 새 줄(ln_b1)로 다시 썼다.
+            MainWindow window = Open(out Story story, dialogueText: Head +
+                "가람: 오늘부터 여기서 일하게 됐어요. #line:ln_a1\n" +
+                "가람: 정말 잘 부탁드려요. #line:ln_b1\n" +
+                "===\n");
+
+            Assert.True(window.SelectLine("ln_b1"));
+            Assert.Equal("ln_a2", CommandAddress.ShortLineId(Assert.Single(window.ShelfLines).Line.LineId));
+            Assert.Equal(1, window.TodoCounts[MainWindow.Todo.NoStaging]);
+
+            window.SetShelfOpen(true);
+            RenderShots.Save(window, "k8-i6-shelf");
+
+            Assert.False(window.AdoptShelved("ln_zz"));
+            Assert.True(window.AdoptShelved("ln_a2"));
+            Assert.Contains("보관소의 연출을 이 줄에 붙였다", window.StatusLine);
+            Assert.Contains(
+                "<<at start face s1 05>>\n<<at a face_swap s1 03 13fr>>\n가람: 정말 잘 부탁드려요.[beat=a/] #line:ln_b1\n",
+                File.ReadAllText(story.StagingFile));
+            Assert.Equal(File.ReadAllText(story.StagingFile), File.ReadAllText(story.GameFile));
+            Assert.Empty(window.ShelfLines);
+            Assert.Equal(0, window.TodoCounts[MainWindow.Todo.NoStaging]);
+
+            // 줄 끝에 선 박자를 바로 놓는다.
+            Assert.Equal("a", window.PickedBeat);
+            Assert.True(window.PlaceBeatAt(3));
+            RenderShots.Save(window, "k8-i6-adopted");
+
+            Assert.True(window.Undo());
+            Assert.True(window.Undo());
+            Assert.Single(window.ShelfLines);
+            Assert.DoesNotContain("face_swap", File.ReadAllText(story.StagingFile));
         });
     }
 }
