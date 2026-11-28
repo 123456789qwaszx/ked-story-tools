@@ -243,9 +243,9 @@ public static partial class LineEditor
         }
 
         // 확인은 묶음이 아니라 대사 줄을 갈아 적는다 — 읽기만인 줄에서도 된다(커맨드를 건드리지 않는다).
-        if (edit is AcceptText accept)
+        if (edit is AcceptText or PlaceBeat)
         {
-            return ApplyAccept(text, before, line, accept, specs);
+            return ApplyAccept(text, before, line, edit is PlaceBeat place ? place.Line : ((AcceptText)edit).Line, specs);
         }
 
         if (!IsEditable(line, out string reason))
@@ -327,12 +327,12 @@ public static partial class LineEditor
         return EditOutcome.Applied(after, now, target, removed, added, warnings);
     }
 
-    // ── 확인 (K8 · C7) ──────────────────────────────────────────────────────
+    // ── 확인 · 박자 놓기 (K8 · C7 · L5) ─────────────────────────────────────
 
     // 대사 줄 하나를 받은 줄로 갈아 적는다. 줄 끝 문자는 있던 대로. 다른 줄의 읽기와 이 줄의 커맨드는 달라지지 않아야 한다.
-    private static EditOutcome ApplyAccept(string text, YarnFileRead before, LineRead line, AcceptText accept, StageCommandSpecTable specs)
+    private static EditOutcome ApplyAccept(string text, YarnFileRead before, LineRead line, string accepted, StageCommandSpecTable specs)
     {
-        if (accept.Line.Contains('\n') || accept.Line.Contains('\r'))
+        if (accepted.Contains('\n') || accepted.Contains('\r'))
         {
             throw new Refusal("확인할 줄이 한 줄이 아니다");
         }
@@ -346,12 +346,12 @@ public static partial class LineEditor
             end--;
         }
 
-        if (text.AsSpan(start, end - start).SequenceEqual(accept.Line.AsSpan()))
+        if (text.AsSpan(start, end - start).SequenceEqual(accepted.AsSpan()))
         {
             return EditOutcome.Unchanged(text, line, null);
         }
 
-        string after = string.Concat(text.AsSpan(0, start), accept.Line, text.AsSpan(end));
+        string after = string.Concat(text.AsSpan(0, start), accepted, text.AsSpan(end));
         YarnFileRead reread = YarnLineReader.ReadFile(after, SourceName, specs);
 
         if (reread.Lines.Count != before.Lines.Count || !reread.TryGet(line.LineId, out LineRead now) || now.Line != line.Line)
@@ -387,9 +387,9 @@ public static partial class LineEditor
 
         return EditOutcome.Applied(after, now, null, null, null, warnings);
 
-        // 앵커마다의 커맨드 — 글의 자리(스텝의 글)는 바뀌므로 뺀다.
+        // 앵커마다의 커맨드 — 글의 자리(스텝의 글)와 앵커가 열리는 차례는 바뀌므로 뺀다(이름 순으로 견준다).
         static string Commands(LineRead read)
-            => string.Join('\n', read.Steps.Where(s => s.Commands.Count > 0 || s.HasGap).Select(s =>
+            => string.Join('\n', read.Steps.Where(s => s.Commands.Count > 0 || s.HasGap).OrderBy(s => s.Name, StringComparer.Ordinal).Select(s =>
                 string.Create(CultureInfo.InvariantCulture, $"{s.Name}|{s.Gap}|") +
                 string.Join(';', s.Commands.Select(c =>
                     string.Create(CultureInfo.InvariantCulture, $"{c.Name} {string.Join(' ', c.Args)} +{c.Delay}")))));

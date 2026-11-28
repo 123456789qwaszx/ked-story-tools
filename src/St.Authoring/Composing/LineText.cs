@@ -4,8 +4,8 @@ using Ked.Presentation.Core;
 
 namespace St.Authoring.Composing;
 
-/// <summary>대사 글 안의 박자 표시 하나 — 원문 그대로의 글과, 표시를 뺀 글에서의 자리.</summary>
-internal readonly record struct Beat(string Raw, int Position);
+/// <summary>대사 글 안의 박자 표시 하나 — 원문 그대로의 글 · 이름 · 표시를 뺀 글에서의 자리.</summary>
+internal readonly record struct Beat(string Raw, string Name, int Position);
 
 /// <summary>
 /// 대사 줄 하나를 가른 것 — 들여쓰기 · 글(화자와 박자 표시가 든 원문) · 태그 꼬리 · 줄 끝 문자(docs/PLAN.md §2.5 I1).
@@ -20,7 +20,7 @@ internal sealed partial class LineText
 
     // 박자 표시 [beat=이름/] — 코어의 TryReadBeatMarker와 같은 꼴(공백 허용 · 따옴표 이름).
     private static readonly Regex BeatPattern = new(
-        @"\G\[\s*" + Regex.Escape(LineBeatSchedule.MarkerName) + @"\s*=\s*(?:""(?:\\.|[^""])*""|(?!"")[^\s/\]]*)\s*/\s*\]",
+        @"\G\[\s*" + Regex.Escape(LineBeatSchedule.MarkerName) + @"\s*=\s*(?:""(?<quoted>(?:\\.|[^""])*)""|(?!"")(?<bare>[^\s/\]]*))\s*/\s*\]",
         RegexOptions.CultureInvariant);
 
     private readonly int _rawBodyStart;
@@ -123,6 +123,51 @@ internal sealed partial class LineText
         return new LineText(indent, text, tail, eol, lineId, plain, bodyStart, rawBodyStart, beats);
     }
 
+    /// <summary>
+    /// 박자 하나를 글의 다른 자리로 옮긴 줄(줄 끝 문자 없이) — 글은 그대로, 표지만 움직인다(P4 · L5).
+    /// <paramref name="position"/>은 화자를 뺀 글에서 "이 글자가 드러나기 직전"이고 글의 길이면 글 끝이다.
+    /// 글 첫머리(0)에는 놓지 않는다 — 거기는 대사창이 열리기 전의 앞 앵커 자리다. 놓을 수 없으면 null.
+    /// </summary>
+    public string? WithBeatAt(int index, int position)
+    {
+        if (index < 0 || index >= Beats.Count || Beats[index].Position <= BodyStart || position < 1 || position > Body.Length)
+        {
+            return null;
+        }
+
+        int target = BodyStart + position;
+        StringBuilder text = new(Text.Length);
+
+        for (int i = 0; i <= Plain.Length; i++)
+        {
+            for (int b = 0; b < Beats.Count; b++)
+            {
+                if (b != index && Beats[b].Position == i)
+                {
+                    text.Append(Beats[b].Raw);
+                }
+            }
+
+            if (i == target)
+            {
+                text.Append(Beats[index].Raw);
+            }
+
+            if (i < Plain.Length)
+            {
+                text.Append(Plain[i]);
+            }
+        }
+
+        // 표시 곁의 공백 하나는 읽을 때 먹힌다 — 옮긴 뒤에도 글과 박자의 자리가 뜻한 대로인지 다시 읽어 본다.
+        string moved = Indent + text + Tail;
+        LineText reread = Parse(moved);
+
+        return reread.Plain == Plain && reread.Beats.Count == Beats.Count && reread.Beats.Any(b => b.Raw == Beats[index].Raw && b.Position == target)
+            ? moved
+            : null;
+    }
+
     // 박자 표시를 빼며 읽는다. rawOf[i]는 뺀 글의 i번째 글자가 원문의 어디였는가.
     private static (string Plain, List<Beat> Beats, List<int> RawOf) Scan(string text)
     {
@@ -142,7 +187,10 @@ internal sealed partial class LineText
                 continue;
             }
 
-            beats.Add(new Beat(marker.Value, plain.Length));
+            string name = marker.Groups["bare"].Success
+                ? marker.Groups["bare"].Value
+                : Regex.Replace(marker.Groups["quoted"].Value, @"\\(.)", "$1");
+            beats.Add(new Beat(marker.Value, name, plain.Length));
 
             // 코어와 같다 — 표시 앞이 공백(이나 글의 머리)이고 뒤도 공백이면 뒤의 공백 하나를 먹는다.
             bool afterWhitespace = plain.Length == 0 || char.IsWhiteSpace(plain[^1]);

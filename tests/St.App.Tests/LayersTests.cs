@@ -161,4 +161,43 @@ public class LayersTests
             Assert.DoesNotContain("face s1 09", File.ReadAllText(story.GameFile));
         });
     }
+
+    [Fact]
+    public void 박자를_골라_글자를_누르면_그_앞에_놓이고_다시_볼_줄은_확인된다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            MainWindow window = Open(out Story story);
+            Assert.True(window.SelectLine("ln_a2"));
+
+            // 다시 볼 줄 — 새 글 위에 박자가 줄 끝에 서 있다. 옮길 박자가 하나라 이미 골라져 있다.
+            BeatLine beats = Assert.IsType<BeatLine>(window.ShownBeats);
+            Assert.Equal("정말 잘 부탁드려요.", beats.Body);
+            Assert.Equal("a", window.PickedBeat);
+            RenderShots.Save(window, "k8-i5-beats");
+
+            Assert.False(window.PlaceBeatAt(0));
+            Assert.True(window.PlaceBeatAt(3));
+            Assert.Contains("박자 a를 놓았다", window.StatusLine);
+            Assert.Contains("확인했다", window.StatusLine);
+            Assert.Contains("가람: 정말 [beat=a/]잘 부탁드려요. #line:ln_a2\n", File.ReadAllText(story.StagingFile));
+            Assert.Equal(File.ReadAllText(story.StagingFile), File.ReadAllText(story.GameFile));
+            Assert.Null(window.ShownReview);
+            Assert.Equal(3, window.ShownBeats!.Beats.Single().Position);
+            RenderShots.Save(window, "k8-i5-placed");
+
+            // 확인된 줄에서도 다시 옮긴다 — 글은 그대로다.
+            Assert.True(window.PlaceBeatAt(5));
+            Assert.Contains("가람: 정말 잘 [beat=a/]부탁드려요. #line:ln_a2\n", File.ReadAllText(story.StagingFile));
+
+            Assert.True(window.Undo());
+            Assert.True(window.Undo());
+            Assert.NotNull(window.ShownReview);
+
+            // 옮길 박자가 없는 줄에는 칸이 서지 않는다 — 글 첫머리의 박자는 옮기지 않는다.
+            Assert.True(window.SelectLine("ln_a1"));
+            Assert.Null(window.ShownBeats);
+            Assert.False(window.PickBeat("in"));
+        });
+    }
 }

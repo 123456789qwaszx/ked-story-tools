@@ -3,7 +3,7 @@ using Ked.Presentation.Core;
 namespace St.Authoring.Editing;
 
 /// <summary>
-/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯, 연출 층의 확인(K8 · C7)까지 일곱이다.
+/// 줄 고치기의 조작 하나(docs/PLAN.md §4.3 · P4) — 다섯에 바꾸기(K7 · D15)를 더해 여섯, 연출 층의 확인(K8 · C7)과 박자 놓기(K8 · L5)까지 여덟이다.
 /// 앵커를 새로 만들거나 옮기는 일은 없다: 표지는 대사 글 안에 있고, 이 툴은 글을 짓지 않는다 — 확인은 디렉터의 글을 받아 적을 뿐이다.
 /// </summary>
 public abstract record LineEdit(string LineId);
@@ -52,3 +52,10 @@ public sealed record SetGap(string LineId, string Anchor, string? Gap) : LineEdi
 /// 태그를 얹은 것, 줄 끝 문자 없이). 이 툴이 글을 짓지 않는다 — 줄 ID가 다르거나 커맨드의 읽기가 달라지면 거절한다.
 /// </summary>
 public sealed record AcceptText(string LineId, string Line) : LineEdit(LineId);
+
+/// <summary>
+/// 박자 놓기(K8 · L5 — P4를 고쳤다) — 대사 줄의 박자 표시를 글의 다른 자리로 옮긴다. 글은 그대로, 표지만 움직인다.
+/// <paramref name="Line"/>은 표지를 옮긴 그 줄이다(<c>BeatPlacement.Move</c> — 줄 끝 문자 없이). 다시 볼 줄에서 놓으면 새 글 위에 놓는다 —
+/// 그 줄은 확인된 것이다(C7). 줄 ID가 다르거나 커맨드의 읽기가 달라지면 거절한다.
+/// </summary>
+public sealed record PlaceBeat(string LineId, string Line) : LineEdit(LineId);

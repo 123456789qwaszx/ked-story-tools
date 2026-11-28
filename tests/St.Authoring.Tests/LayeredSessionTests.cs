@@ -174,4 +174,42 @@ public class LayeredSessionTests
         Assert.Contains("게임 폴더가 없다", session.ComposeProblem);
         Assert.Equal(2, Lines(session).Count());
     }
+
+    [Fact]
+    public void 다시_볼_줄에_박자를_놓으면_새_글_위에_놓이고_그_줄은_확인된다()
+    {
+        Story story = Make();
+        EditSession session = EditSession.Open(story.Staging);
+        File.WriteAllText(story.DialogueFile, ComposeTests.Dialogue.Replace("잘 부탁드립니다, 정말로요.", "정말 잘 부탁드려요."));
+        Assert.True(session.Refresh());
+
+        LibraryLine line = Lines(session).Single(l => l.Id == "ln_a2");
+        Assert.True(session.StateOf(line)!.BeatsMoved);
+
+        // 보이는 것은 새 글이고 박자는 줄 끝에 가 있다.
+        BeatLine beats = session.BeatsOf(line)!;
+        Assert.Equal("정말 잘 부탁드려요.", beats.Body);
+        Assert.Equal(new BeatSpot(0, "a", 11, Movable: true), Assert.Single(beats.Beats));
+
+        EditOutcome outcome = session.PlaceBeat(line, 0, 3);
+        Assert.True(outcome.Changed, outcome.Error);
+
+        string placed = "가람: 정말 [beat=a/]잘 부탁드려요. #line:ln_a2\n";
+        Assert.Contains(placed, File.ReadAllText(story.StagingFile));
+        Assert.Contains(placed, File.ReadAllText(story.GameFile));
+
+        // 놓으면 확인된 것이다 — 다시 볼 것이 없고, 박자 a의 커맨드는 그대로 붙어 있다.
+        line = Lines(session).Single(l => l.Id == "ln_a2");
+        Assert.Null(session.StateOf(line)!.Review);
+        Assert.Equal("face_swap", line.Read.Step("a").Commands.Single().Name);
+        Assert.Equal("잘 부탁드려요.", line.Read.Step("a").Text);
+
+        // 되돌리기 한 칸 — 옛 글과 다시 볼 것으로 돌아온다.
+        Assert.True(session.Undo());
+        Assert.Contains("가람: 잘 부탁드립니다, [beat=a/]정말로요. #line:ln_a2\n", File.ReadAllText(story.StagingFile));
+        Assert.NotNull(session.StateOf(Lines(session).Single(l => l.Id == "ln_a2"))!.Review);
+
+        // 놓을 수 없는 자리는 거절하고 쓰지 않는다.
+        Assert.False(session.PlaceBeat(Lines(session).Single(l => l.Id == "ln_a2"), 0, 0).Ok);
+    }
 }

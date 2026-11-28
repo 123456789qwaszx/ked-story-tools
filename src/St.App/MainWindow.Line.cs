@@ -54,6 +54,7 @@ public partial class MainWindow
         ShownOutline = null;
         ShownChanges = [];
         ShownReview = null;
+        ShownBeats = null;
 
         if (_lines.SelectedItem is not LibraryLine line)
         {
@@ -106,6 +107,11 @@ public partial class MainWindow
         if (BuildReview(line) is { } review)
         {
             _lineHost.Children.Add(review);
+        }
+
+        if (BuildBeats(line, otherLine) is { } beats)
+        {
+            _lineHost.Children.Add(beats);
         }
 
         if (_comparing && edited && _session?.Original(line) is { } original)

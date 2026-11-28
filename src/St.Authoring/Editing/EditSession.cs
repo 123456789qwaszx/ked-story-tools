@@ -390,6 +390,38 @@ public sealed class EditSession
     }
 
     /// <summary>
+    /// 이 줄의 글과 그 안의 박자 — 박자를 놓을 때 보이는 것(L5). 다시 볼 줄이면 **새 글**이다(놓으면 그 줄은 확인된다 — C7).
+    /// 줄 ID가 없으면 null.
+    /// </summary>
+    public BeatLine? BeatsOf(LibraryLine line)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+        return line.Read.LineId is null ? null : BeatPlacement.Read(BeatSource(line));
+    }
+
+    /// <summary>
+    /// 박자 놓기(L5) — 그 줄의 박자 하나를 글의 다른 자리로 옮긴다. 되돌리기 한 칸이다.
+    /// <paramref name="position"/>은 화자를 뺀 글에서 "이 글자가 드러나기 직전"(1 ~ 글의 길이 — 길이면 글 끝).
+    /// </summary>
+    public EditOutcome PlaceBeat(LibraryLine line, int beat, int position)
+    {
+        ArgumentNullException.ThrowIfNull(line);
+
+        if (line.Read.LineId is not { } lineId)
+        {
+            return EditOutcome.Refused(line.File.Script.Text, "LineId(#line:…)가 없는 줄이다 — 주소가 없어 고칠 수 없다");
+        }
+
+        return BeatPlacement.Move(BeatSource(line), beat, position) is { } moved
+            ? Apply(line.File.Script.Path, new PlaceBeat(lineId, moved))
+            : EditOutcome.Refused(line.File.Script.Text, "그 자리에는 박자를 놓을 수 없다 — 글 첫머리의 박자는 옮기지 않고, 글 첫머리에는 놓지 않는다");
+    }
+
+    // 박자를 놓을 줄(줄 끝 문자 없이) — 다시 볼 줄이면 확인하면 설 줄(새 글), 아니면 연출 층의 그 줄.
+    private string BeatSource(LibraryLine line)
+        => StateOf(line)?.Review?.Accepted ?? RawLine(line.File.Script.Text, line.Read).TrimEnd('\n', '\r');
+
+    /// <summary>
     /// 덮어쓰기(C6) — 손으로 고친 게임 yarn도 덮어 다시 합친다. 사람이 고른 때에만 부른다. 다 들어갔으면 true.
     /// </summary>
     public bool Overwrite()

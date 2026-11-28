@@ -293,4 +293,46 @@ public class ComposeTests
         Assert.Equal(markers.Select(m => m.Position), line.Beats.Select(b => b.Position));
         Assert.Equal(YarnCommandTextExtractor.CharacterPrefixLength(plain), line.BodyStart);
     }
+
+    // ── 박자 놓기 (K8 I5) ───────────────────────────────────────────────────
+
+    [Fact]
+    public void 박자를_옮기면_글은_그대로이고_표지만_움직인다()
+    {
+        const string line = "가람: 정말 잘 부탁드려요.[beat=a/] #auto=2s #line:ln_a2\n";
+
+        BeatLine read = BeatPlacement.Read(line);
+        Assert.Equal("가람", read.Speaker);
+        Assert.Equal("정말 잘 부탁드려요.", read.Body);
+        Assert.Equal(new BeatSpot(0, "a", 11, Movable: true), Assert.Single(read.Beats));
+
+        // 셋째 글자("잘") 앞 — 화자를 뺀 글에서 3.
+        Assert.Equal("가람: 정말 [beat=a/]잘 부탁드려요. #auto=2s #line:ln_a2\n", BeatPlacement.Move(line, 0, 3));
+
+        // 다시 글 끝으로.
+        Assert.Equal(line, BeatPlacement.Move("가람: 정말 [beat=a/]잘 부탁드려요. #auto=2s #line:ln_a2\n", 0, 11));
+
+        // 글 첫머리에는 놓지 않고, 글 밖도 없는 박자도 아니다.
+        Assert.Null(BeatPlacement.Move(line, 0, 0));
+        Assert.Null(BeatPlacement.Move(line, 0, 12));
+        Assert.Null(BeatPlacement.Move(line, 1, 3));
+    }
+
+    [Fact]
+    public void 글_첫머리의_박자는_옮기지_않고_다른_박자를_옮겨도_제자리다()
+    {
+        const string line = "가람: [beat=in/]하나 둘 [beat=a/]셋 #line:t1";
+
+        BeatLine read = BeatPlacement.Read(line);
+        Assert.Equal(new[] { false, true }, read.Beats.Select(b => b.Movable));
+        Assert.Equal(new[] { 0, 5 }, read.Beats.Select(b => b.Position));
+
+        Assert.Null(BeatPlacement.Move(line, 0, 2));
+        Assert.Equal("가람: [beat=in/]하나 [beat=a/]둘 셋 #line:t1", BeatPlacement.Move(line, 1, 3));
+
+        // 옮긴 줄의 글은 코어가 읽어도 같다.
+        List<BeatMarker> markers = [];
+        Assert.Equal("가람: 하나 둘 셋", YarnCommandTextExtractor.StripLineMarkers("가람: [beat=in/]하나 [beat=a/]둘 셋", markers));
+        Assert.Equal(new[] { 4, 7 }, markers.Select(m => m.Position));
+    }
 }
