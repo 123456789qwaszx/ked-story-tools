@@ -9,6 +9,7 @@
 | [workspace-n4.md](workspace-n4.md) | ked-vn-workspace | N4 + R6 — 포크 · 파이썬 도구 · 카드 · 다시 내기 | **끝났다(2026-11-22)** |
 | [character-rig.md](character-rig.md) | ked-motion-tool-characterRig | R7 — 코어 사본 · 리그 스키마 · 걷힌 노드 | **지금 시작할 수 있다** — 런타임 `dev` `b56a2ebc`(튜닝 덤프도 다시 냈다 — `6968f30c`) |
 | [story-tools.md](story-tools.md) | ked-story-tools(여기) | K3 줄 고치기 · CLI · K4 화면 | **K3 · K4-1 ~ K4-4 끝(2026-11-22)** — `dev`. 다음은 K4-5(계획서 §2.3 — 써 본 뒤의 불편으로 차례를 정한다) |
+| [toolchain-blueprint.md](toolchain-blueprint.md) | 여러 저장소 | 툴 전체의 역할 · 일의 흐름(2026-11-28), 몸짓 모션을 "이름 붙은 커맨드 묶음"으로 — 합칠 때 풀어 게임에는 커맨드만 | **정할 것(§6)부터** — 구현은 아직 없다 |
 
 ## 차례
 
