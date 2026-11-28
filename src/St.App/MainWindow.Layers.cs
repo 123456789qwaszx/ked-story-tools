@@ -84,8 +84,11 @@ public partial class MainWindow
             _ => state.NoStaging,
         };
 
-    /// <summary>켜 둔 할 일이 있는 줄만 남긴다 — 켠 것이 없으면 그대로.</summary>
-    private IReadOnlyList<StoryEpisode> FilterTodo(IReadOnlyList<StoryEpisode> episodes)
+    /// <summary>
+    /// 켜 둔 할 일이 있는 줄만 남긴다 — 켠 것이 없으면 그대로. <b>고른 줄은 할 일이 없어져도 남긴다</b>: 확인하거나 박자를 놓은
+    /// 그 줄이 목록에서 빠지면 가운데가 비어 연출이 사라진 것처럼 보인다. 다른 줄을 고르면 그때 빠진다.
+    /// </summary>
+    private IReadOnlyList<StoryEpisode> FilterTodo(IReadOnlyList<StoryEpisode> episodes, LibraryLine? keep)
     {
         IReadOnlySet<Todo> todos = Todos;
 
@@ -94,8 +97,10 @@ public partial class MainWindow
             return episodes;
         }
 
+        bool Kept(LibraryLine line) => keep?.Id is { } id && line.Id == id && line.File.Script.Path == keep.File.Script.Path;
+
         return episodes
-            .Select(e => e with { Lines = e.Lines.Where(l => todos.Any(t => Has(l, t))).ToList() })
+            .Select(e => e with { Lines = e.Lines.Where(l => Kept(l) || todos.Any(t => Has(l, t))).ToList() })
             .Where(e => e.Lines.Count > 0)
             .ToList();
     }

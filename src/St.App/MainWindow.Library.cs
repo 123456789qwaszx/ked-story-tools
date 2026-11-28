@@ -298,7 +298,7 @@ public partial class MainWindow
             LibraryLine? selected = _lines.SelectedItem as LibraryLine ?? _currentLine;
             StoryScene? scene = Scene;
 
-            ListedEpisodes = FilterTodo(scene?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null, Episode?.Id) ?? []);
+            ListedEpisodes = FilterTodo(scene?.Search(_search.Text, _onlyWithKind.IsChecked == true ? Kinds : null, Episode?.Id) ?? [], selected);
             RefreshTodo(scene);
 
             List<object> items = [];

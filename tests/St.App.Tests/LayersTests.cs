@@ -241,4 +241,28 @@ public class LayersTests
             Assert.DoesNotContain("face_swap", File.ReadAllText(story.StagingFile));
         });
     }
+
+    [Fact]
+    public void 할_일로_거른_채_확인해도_그_줄은_목록에_남고_연출이_그대로_보인다()
+    {
+        HeadlessUi.Run(() =>
+        {
+            MainWindow window = Open(out _);
+            window.SetTodos(MainWindow.Todo.Review);
+            Assert.True(window.SelectLine("ln_a2"));
+            int commands = window.ShownOutline!.Steps.Sum(s => s.Commands.Count);
+            Assert.True(commands > 0);
+
+            // 확인하면 다시 볼 것이 아니게 된다 — 그래도 고른 채로 남아 가운데가 비지 않는다.
+            Assert.True(window.ConfirmLine());
+            Assert.Equal(new string?[] { "ln_a2" }, window.VisibleLines.Select(l => l.Id));
+            Assert.Equal(commands, window.ShownOutline!.Steps.Sum(s => s.Commands.Count));
+
+            // 다른 줄로 옮기면 그때 빠진다.
+            window.SetTodos(MainWindow.Todo.Review, MainWindow.Todo.NoStaging);
+            Assert.True(window.SelectLine("ln_a3"));
+            window.SetTodos(MainWindow.Todo.NoStaging);
+            Assert.Equal(new string?[] { "ln_a3" }, window.VisibleLines.Select(l => l.Id));
+        });
+    }
 }
