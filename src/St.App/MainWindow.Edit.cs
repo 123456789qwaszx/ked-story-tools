@@ -4,6 +4,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Ked.Presentation.Core;
 using St.App.Views;
+using St.Authoring.Composing;
 using St.Authoring.Editing;
 using St.Authoring.Reading;
 
@@ -290,9 +291,11 @@ public partial class MainWindow
         }
 
         ReloadKeepingSelection();
-        _status.Text = outcome.Warnings.Count > 0
-            ? $"고쳐서 파일에 썼다 — 알림: {DirectorText.Clean(outcome.Warnings[0])}"
-            : "고쳐서 파일에 썼다 — Unity에서 되감으면 보인다 · 되돌리기 Ctrl+Z";
+        _status.Text = _session?.ComposeProblem is { } held
+            ? $"연출 층에 썼다 — {held}"
+            : outcome.Warnings.Count > 0
+                ? $"고쳐서 파일에 썼다 — 알림: {DirectorText.Clean(outcome.Warnings[0])}"
+                : "고쳐서 파일에 썼다 — Unity에서 되감으면 보인다 · 되돌리기 Ctrl+Z";
         return outcome;
     }
 
@@ -338,7 +341,27 @@ public partial class MainWindow
     internal bool RefreshFromDisk()
     {
         ForgetMotions();
-        return Moved(_session?.Refresh() == true, "바깥에서 바뀐 대본을 다시 읽었다 — 그 파일의 되돌리기는 비웠다");
+        bool refreshed = _session?.Refresh() == true;
+        return Moved(refreshed, ComposeStatus() ?? "바깥에서 바뀐 대본을 다시 읽었다 — 그 파일의 되돌리기는 비웠다");
+    }
+
+    /// <summary>층을 둔 대본의 마지막 합치기를 한 줄로 — 들이지 못한 까닭, 없으면 대사 층에서 들인 것. 알릴 것이 없으면 null.</summary>
+    internal string? ComposeStatus()
+    {
+        if (_session?.ComposeProblem is { } problem)
+        {
+            return problem;
+        }
+
+        if (_session?.Composed?.Result.Notes is not { Count: > 0 } notes)
+        {
+            return null;
+        }
+
+        int Count(LineNoteKind kind) => notes.Count(n => n.Kind == kind);
+
+        return $"대사 층과 합쳤다 — 다시 볼 것 {Count(LineNoteKind.Review)} · 연출 없음 {Count(LineNoteKind.NoStaging)}"
+            + $" · 보관 {Count(LineNoteKind.Retired)} · 복원 {Count(LineNoteKind.Restored)} · 옮김 {Count(LineNoteKind.Moved)}";
     }
 
     private bool Moved(bool moved, string status)

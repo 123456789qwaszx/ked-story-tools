@@ -1,4 +1,5 @@
 using Ked.Presentation.Core;
+using St.Authoring.Composing;
 using St.Authoring.Editing;
 
 namespace St.Authoring.Scripts;
@@ -33,7 +34,10 @@ public sealed class ScriptSet
 
         if (Directory.Exists(path))
         {
-            string[] found = Directory.GetFiles(path, "*.yarn", SearchOption.AllDirectories);
+            // 보관소(*.retired.yarn — docs/PLAN.md §2.5 C3)는 대본이 아니다. 대사 층에서 사라진 줄의 연출이 든 곳이다.
+            string[] found = Directory.GetFiles(path, "*.yarn", SearchOption.AllDirectories)
+                .Where(file => !LayerComposer.IsRetiredName(Path.GetFileName(file)))
+                .ToArray();
             Array.Sort(found, StringComparer.Ordinal);
             return new ScriptSet(path, found);
         }

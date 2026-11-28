@@ -126,8 +126,12 @@ public sealed partial class ScriptLibrary
     [GeneratedRegex(@"^//\s*장면:\s*(?<name>.+?)\s*\((?<id>[^()\s]+)\)\s*$", RegexOptions.Multiline)]
     private static partial Regex SceneComment();
 
-    /// <summary>파일이나 폴더를 연다. 읽지 못한 파일은 건너뛰고 <see cref="Problems"/>에 적는다.</summary>
-    public static ScriptLibrary Open(string path, StageCommandSpecTable? specs = null)
+    /// <summary>
+    /// 파일이나 폴더를 연다. 읽지 못한 파일은 건너뛰고 <see cref="Problems"/>에 적는다.
+    /// <paramref name="progressionFolder"/>를 주면 그 폴더 바로 아래의 진행 파일도 읽는다 — 연출 층 폴더(K8)에는 진행 파일이 없고
+    /// 짝지은 <c>exported/</c>에 있다.
+    /// </summary>
+    public static ScriptLibrary Open(string path, StageCommandSpecTable? specs = null, string? progressionFolder = null)
     {
         ScriptSet set = ScriptSet.Open(path);
         List<LibraryFile> files = [];
@@ -149,7 +153,7 @@ public sealed partial class ScriptLibrary
 
         if (Directory.Exists(path))
         {
-            string[] progressions = Directory.GetFiles(path, ProgressionPattern, SearchOption.AllDirectories);
+            string[] progressions = ProgressionPaths(path, progressionFolder).ToArray();
             Array.Sort(progressions, StringComparer.Ordinal);
 
             foreach (string progression in progressions)
@@ -169,6 +173,18 @@ public sealed partial class ScriptLibrary
         }
 
         return Assemble(set.Root, files, sources, problems);
+    }
+
+    /// <summary>그 폴더(와 짝지은 폴더 바로 아래)의 진행 파일 — 바깥에서 바뀌었는지 볼 때도 같은 것을 센다.</summary>
+    public static IEnumerable<string> ProgressionPaths(string folder, string? progressionFolder)
+    {
+        ArgumentNullException.ThrowIfNull(folder);
+
+        IEnumerable<string> own = Directory.GetFiles(folder, ProgressionPattern, SearchOption.AllDirectories);
+
+        return progressionFolder is not null && Directory.Exists(progressionFolder)
+            ? own.Concat(Directory.GetFiles(progressionFolder, ProgressionPattern))
+            : own;
     }
 
     /// <summary>

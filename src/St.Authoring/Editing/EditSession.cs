@@ -1,5 +1,6 @@
 using Ked.Presentation.Core;
 using System.Text.Json.Nodes;
+using St.Authoring.Composing;
 using St.Authoring.Motions;
 using St.Authoring.Reading;
 using St.Authoring.Scripts;
@@ -14,6 +15,10 @@ namespace St.Authoring.Editing;
 ///   줄의 모션을 풀거나 솎으면 그 편의 모션 파일도 함께 쓴다 — 대본의 조작과 한 칸으로 되돌린다.
 ///   바깥에서 파일이 바뀌었으면 그 파일의 되돌리기를 비우고 디스크의 글에서 다시 시작한다 — 바깥의 고침을 덮어쓰지 않는다.
 ///
+///   연 폴더가 연출 층이면(<c>compose.json</c>이 있다 — docs/PLAN.md §2.5 C5) 열 때 · 고칠 때마다 · 다시 볼 때 대사 층이 바뀌었으면
+///   합친다(<see cref="ComposeFolder"/>). 게임 yarn은 그 결과물이다 — 되돌리면 다시 합쳐 따라온다. 합치기가 들인 대사 층의 변화는
+///   바깥의 고침과 같다 — 되돌리기 칸이 아니고, 그 파일의 되돌리기를 비운다.
+///
 /// 고치는 길은 <see cref="LineEditor"/> 하나다 — 여기는 파일과 되돌리기의 살림만 한다.
 /// 고칠 때마다 폴더를 다시 읽지 않는다: 바뀐 파일 하나만 다시 읽어 갈아 끼우고(<see cref="ScriptLibrary.WithFile"/>),
 /// 바깥의 고침은 파일의 때와 크기로 먼저 가린다.
@@ -24,14 +29,31 @@ public sealed class EditSession
     private readonly Dictionary<string, FileStamp> _stamps = new(StringComparer.Ordinal);
     private readonly List<UndoStep> _undo = [];
     private readonly List<UndoStep> _redo = [];
+    private readonly Dictionary<string, FileStamp> _dialogue = new(StringComparer.Ordinal);
 
-    private EditSession(string root, StageCommandSpecTable? specs, ScriptLibrary library)
+    private EditSession(string root, StageCommandSpecTable? specs, ComposeSettings? layers)
     {
         Root = root;
         Specs = specs ?? StageCommandSpecTable.Default;
-        Library = library;
+        Layers = layers;
+
+        // 먼저 합친다 — 대사 층의 새 줄 · 지운 줄이 연출 층에 들어온 뒤에 읽는다.
+        Compose();
+        Library = Read();
         Adopt();
     }
+
+    /// <summary>연 폴더가 연출 층이면 그 짝(대사 층 · 게임 폴더). 층을 두지 않은 대본이면 null.</summary>
+    public ComposeSettings? Layers { get; }
+
+    /// <summary>마지막 합치기의 결과 — 줄마다의 알림과 쓴 파일. 층이 없거나 합치기가 돌지 못했으면 null.</summary>
+    public ComposeOutcome? Composed { get; private set; }
+
+    /// <summary>마지막 합치기가 게임에 들이지 못한 까닭 — 거절 · 멈춘 파일 · 없는 폴더. 다 들어갔으면 null.</summary>
+    public string? ComposeProblem { get; private set; }
+
+    // 진행 파일이 있는 곳 — 대사 층(exported/yarn)의 위.
+    private string? ProgressionFolder => Layers is null ? null : Path.GetDirectoryName(Layers.DialogueFolder(Root));
 
     /// <summary>연 경로 — 파일이나 폴더.</summary>
     public string Root { get; }
@@ -51,7 +73,19 @@ public sealed class EditSession
 
     /// <summary>파일이나 폴더를 연다.</summary>
     public static EditSession Open(string path, StageCommandSpecTable? specs = null)
-        => new(path, specs, ScriptLibrary.Open(path, specs));
+    {
+        ArgumentNullException.ThrowIfNull(path);
+
+        try
+        {
+            return new EditSession(path, specs, Directory.Exists(path) ? ComposeSettings.Load(path) : null);
+        }
+        catch (InvalidDataException exception)
+        {
+            // 깨진 compose.json — 여는 쪽은 읽지 못한 폴더로 다룬다.
+            throw new IOException(exception.Message, exception);
+        }
+    }
 
     /// <summary>그 파일의 줄에 조작 하나를 하고, 바뀌었으면 바로 파일에 쓴다.</summary>
     public EditOutcome Apply(string path, LineEdit edit) => Apply(path, [edit]);
@@ -89,6 +123,7 @@ public sealed class EditSession
         _undo.Add(new UndoStep(path, null));
         _redo.Clear();
         Swap(state);
+        Recompose();
         return outcome;
     }
 
@@ -230,6 +265,7 @@ public sealed class EditSession
             _undo.Add(new UndoStep(path, change));
             _redo.Clear();
             Swap(state);
+            Recompose();
             return outcome;
         }
         catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
@@ -279,12 +315,25 @@ public sealed class EditSession
     /// </summary>
     public bool Refresh()
     {
-        if (!Stale())
+        // 대사 층이 바뀌었으면 먼저 들인다(C5) — 무엇이 바뀌었는지는 Composed에 있다.
+        bool merged = DialogueStale();
+
+        if (merged)
         {
-            return false;
+            Compose();
         }
 
-        ScriptLibrary fresh = ScriptLibrary.Open(Root, Specs);
+        if (!Stale())
+        {
+            if (merged)
+            {
+                Revision++;
+            }
+
+            return merged;
+        }
+
+        ScriptLibrary fresh = Read();
         bool changed = fresh.Files.Count != Library.Files.Count
             || fresh.Chapters.Count != Library.Chapters.Count
             || fresh.Files.Any(f => !_files.TryGetValue(f.Script.Path, out FileState? state) || state.Editor.Text != f.Script.Text)
@@ -293,13 +342,97 @@ public sealed class EditSession
         Library = fresh;
         Adopt();
 
-        if (changed)
+        if (changed || merged)
         {
             Revision++;
         }
 
-        return changed;
+        return changed || merged;
     }
+
+    // ── 층 (docs/PLAN.md §2.5) ──────────────────────────────────────────────
+
+    private ScriptLibrary Read() => ScriptLibrary.Open(Root, Specs, ProgressionFolder);
+
+    /// <summary>합친다 — 층이 없으면 아무것도 하지 않는다. 합치기가 연출 층의 파일을 고쳤으면(대사 층이 바뀌었다) true.</summary>
+    private bool Compose()
+    {
+        if (Layers is null)
+        {
+            return false;
+        }
+
+        try
+        {
+            Composed = ComposeFolder.Run(Root, Layers, specs: Specs);
+            ComposeProblem = !Composed.Result.Ok
+                ? $"합치지 못했다 — {string.Join(" · ", Composed.Result.Errors)}"
+                : Composed.Files.FirstOrDefault(f => f.Change == FileChange.Held) is { } held
+                    ? $"게임 yarn {held.Name}에 쓰지 않았다 — {held.Reason}. 대사는 디렉터에서, 연출은 이 툴에서 고친다"
+                    : null;
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            Composed = null;
+            ComposeProblem = $"합치지 못했다 — {exception.Message}";
+        }
+
+        _dialogue.Clear();
+
+        foreach (string path in DialoguePaths())
+        {
+            _dialogue[path] = FileStamp.Of(path);
+        }
+
+        return Composed?.Files.Any(f => f.Layer != ComposeFolder.GameLayer && f.Change != FileChange.Held) == true;
+    }
+
+    // 연출 층을 고친 뒤 — 게임 yarn이 따라온다. 그 김에 대사 층의 변화가 들어왔으면 바깥의 고침처럼 다시 읽는다.
+    private void Recompose()
+    {
+        if (Compose())
+        {
+            Library = Read();
+            Adopt();
+            Revision++;
+        }
+    }
+
+    private IEnumerable<string> DialoguePaths()
+    {
+        if (Layers is null)
+        {
+            return [];
+        }
+
+        try
+        {
+            string folder = Layers.DialogueFolder(Root);
+            return Directory.Exists(folder) ? Directory.GetFiles(folder, "*.yarn") : [];
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return [];
+        }
+    }
+
+    // 대사 층이 마지막으로 합친 뒤에 바뀌었는가 — 때 · 크기 · 파일의 집합.
+    private bool DialogueStale()
+    {
+        if (Layers is null)
+        {
+            return false;
+        }
+
+        List<string> paths = DialoguePaths().ToList();
+        return paths.Count != _dialogue.Count || paths.Any(p => !_dialogue.TryGetValue(p, out FileStamp stamp) || stamp != FileStamp.Of(p));
+    }
+
+    // 이 대본을 이루는 디스크의 파일 — 대본과 진행 파일. 읽는 쪽(ScriptLibrary)과 같은 것을 센다.
+    private IEnumerable<string> DiskPaths()
+        => Directory.Exists(Root)
+            ? ScriptSet.Open(Root).Paths.Concat(ScriptLibrary.ProgressionPaths(Root, ProgressionFolder))
+            : Library.SourcePaths;
 
     /// <summary>이 줄이 연 뒤로 고쳐졌는가 — 그 줄의 커맨드 묶음이 처음 읽은 것과 다르다.</summary>
     public bool IsEdited(LibraryLine line) => Original(line) is { } original && !Block(original.Text, original.Line).SequenceEqual(Block(line.File.Script.Text, line.Read));
@@ -394,6 +527,7 @@ public sealed class EditSession
             if (state is not null)
             {
                 Swap(state);
+                Recompose();
             }
             else
             {
@@ -465,9 +599,7 @@ public sealed class EditSession
 
             if (Directory.Exists(Root))
             {
-                HashSet<string> disk = Directory.GetFiles(Root, "*.yarn", SearchOption.AllDirectories)
-                    .Concat(Directory.GetFiles(Root, "*.progression.json", SearchOption.AllDirectories))
-                    .ToHashSet(StringComparer.Ordinal);
+                HashSet<string> disk = DiskPaths().ToHashSet(StringComparer.Ordinal);
 
                 // 읽지 못해 건너뛴 파일은 아는 집합에 없다 — 그 수가 달라졌을 때만 다시 읽는다.
                 if (disk.Count != _stamps.Count || !disk.SetEquals(_stamps.Keys))
@@ -503,12 +635,7 @@ public sealed class EditSession
 
         _stamps.Clear();
 
-        IEnumerable<string> paths = Directory.Exists(Root)
-            ? Directory.GetFiles(Root, "*.yarn", SearchOption.AllDirectories)
-                .Concat(Directory.GetFiles(Root, "*.progression.json", SearchOption.AllDirectories))
-            : Library.SourcePaths;
-
-        foreach (string path in paths)
+        foreach (string path in DiskPaths().ToList())
         {
             _stamps[path] = FileStamp.Of(path);
         }

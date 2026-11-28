@@ -72,5 +72,11 @@ public partial class MainWindow
         ResetGraph();
         ForgetMotions();
         ResetPickers();
+
+        // 연출 층이면 열면서 합쳤다 — 들인 것이나 들이지 못한 까닭을 알린다.
+        if (ComposeStatus() is { } composed)
+        {
+            _status.Text = composed;
+        }
     }
 }
