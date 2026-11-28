@@ -24,6 +24,12 @@ public static partial class StCli
 
         public string? Catalog { get; private set; }
 
+        public string? Dialogue { get; private set; }
+
+        public string? Out { get; private set; }
+
+        public bool Force { get; private set; }
+
         public int? Index { get; private set; }
 
         public bool Json { get; private set; }
@@ -56,6 +62,15 @@ public static partial class StCli
                         break;
                     case "--clear":
                         parsed.Clear = true;
+                        break;
+                    case "--force":
+                        parsed.Force = true;
+                        break;
+                    case "--dialogue":
+                        parsed.Dialogue = Value(args, ref i);
+                        break;
+                    case "--out":
+                        parsed.Out = Value(args, ref i);
                         break;
                     case "--line":
                         parsed.Line = Value(args, ref i);

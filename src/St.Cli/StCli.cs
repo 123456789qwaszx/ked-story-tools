@@ -8,6 +8,7 @@ namespace St.Cli;
 
 /// <summary>
 /// <c>st</c> — 연출 고치기의 명령줄 입구. 창 없이 yarn을 <c>LineId / 앵커 / 종류 / 순번</c>으로 읽고 조작 여섯으로 고친다.
+/// 대사 층과 연출 층을 합친다(K8 I2 — <c>StCli.Compose.cs</c>).
 /// 카드 층(<c>// card:ID</c>)도 읽고 카드 한 장을 통째로 뺀다(K7-6 — <c>StCli.Cards.cs</c>).
 ///
 /// 결과는 표준 출력에 — 기본은 사람과 AI가 함께 읽는 글이고 <c>--json</c>이면 JSON 하나다. 거절 · 오류의 까닭은 표준 오류에.
@@ -39,6 +40,11 @@ public static partial class StCli
                                                        인자를 적지 않으면 슬롯 · 길이 · 이징을 옛 커맨드에서 옮겨 적는다
           st delay  <경로> <주소> <길이>                지연 바꾸기 — 앵커가 열린 뒤 그 커맨드가 시작하기까지
           st gap    <경로> <LineId> <앵커> <길이>       간격 바꾸기 — 그 앵커 뒤 다음 앵커까지의 최소 시간 (--clear면 걷는다)
+
+        합치기 — 대사 층(디렉터의 exported/yarn)과 연출 층을 줄 ID로 합쳐 게임 폴더에 쓴다(docs/CLI.md)
+          st compose <연출 층 폴더> [--dialogue <대사 층>] [--out <게임 폴더>] [--force]
+                                                       짝은 연출 층 폴더의 compose.json에서 읽는다 — 처음에는 --out으로 준다.
+                                                       손으로 고친 게임 yarn은 멈추고 알린다(--force면 덮는다)
 
           <경로>   yarn 파일 하나, 또는 대본 폴더(그 아래의 *.yarn — LineId로 파일을 찾는다)
           <주소>   LineId/앵커/종류/순번 — st read --line 이 커맨드마다 보여 준다 (예: ln_abc/start/acting/0)
@@ -84,6 +90,7 @@ public static partial class StCli
                 "replace" => Replace(parsed, specs, stdout, stderr),
                 "delay" => Edit(parsed, specs, stdout, stderr, DelayOf),
                 "gap" => Edit(parsed, specs, stdout, stderr, GapOf),
+                "compose" => Compose(parsed, specs, stdout, stderr),
                 _ => throw new UsageException($"모르는 명령 '{args[0]}'"),
             };
         }

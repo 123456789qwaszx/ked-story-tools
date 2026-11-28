@@ -1,16 +1,15 @@
 using Ked.Presentation.Core;
 using St.Authoring.Composing;
-using St.Authoring.Scripts;
 
 namespace St.Authoring.Tests;
 
 /// <summary>대사 층과 연출 층을 줄 ID로 합친다(K8 I1 — docs/PLAN.md §2.5). 대본은 지어낸 것이다.</summary>
 public class ComposeTests
 {
-    private const string Scene = "ch01_s01.yarn";
+    internal const string Scene = "ch01_s01.yarn";
 
     // 대사 층 — 디렉터가 내는 꼴.
-    private const string Dialogue =
+    internal const string Dialogue =
         "// 장면: 작업실 (s01)\n" +
         "\n" +
         "// 에피소드: 첫 출근\n" +
@@ -43,7 +42,7 @@ public class ComposeTests
         "---\n";
 
     // 연출 층 — 같은 뼈대에 줄마다 묶음 · 박자 표시 · 태그, 노드 끝에 빈 줄.
-    private const string Staging = Head + LeadA1 + LineA1 + LeadA2 + LineA2 + "\n===\n";
+    internal const string Staging = Head + LeadA1 + LineA1 + LeadA2 + LineA2 + "\n===\n";
 
     private static Dictionary<string, string> One(string text, string name = Scene) => new() { [name] = text };
 
@@ -293,40 +292,5 @@ public class ComposeTests
         Assert.Equal(plain, line.Plain);
         Assert.Equal(markers.Select(m => m.Position), line.Beats.Select(b => b.Position));
         Assert.Equal(YarnCommandTextExtractor.CharacterPrefixLength(plain), line.BodyStart);
-    }
-
-    /// <summary>
-    /// 바깥의 대본으로 왕복을 본다(대사 원문은 이 저장소에 넣지 않는다) — <c>ST_COMPOSE_ROUNDTRIP=&lt;연출 층 폴더&gt;|&lt;대사 층 폴더&gt;</c>가
-    /// 있을 때만 돈다. 메모리에서만 합치고 아무것도 쓰지 않는다. I2의 <c>st compose --dry-run</c>이 서면 걷는다.
-    /// </summary>
-    [Fact]
-    public void 바깥의_대본도_대사가_같으면_왕복한다()
-    {
-        if (Environment.GetEnvironmentVariable("ST_COMPOSE_ROUNDTRIP") is not { Length: > 0 } pair)
-        {
-            return;
-        }
-
-        string[] folders = pair.Split('|');
-        Assert.Equal(2, folders.Length);
-
-        Dictionary<string, string> staging = Read(folders[0]);
-        Dictionary<string, string> dialogue = Read(folders[1]);
-        Assert.NotEmpty(staging);
-        Assert.Equal(staging.Keys.Order(), dialogue.Keys.Order());
-
-        ComposeResult result = LayerComposer.Compose(dialogue, staging);
-        Assert.True(result.Ok, string.Join("\n", result.Errors));
-        Assert.Empty(result.Notes);
-        Assert.Empty(result.Retired);
-
-        foreach ((string name, string text) in staging)
-        {
-            Assert.Equal(text, result.Game[name]);
-            Assert.Equal(text, result.Staging[name]);
-        }
-
-        static Dictionary<string, string> Read(string folder)
-            => Directory.GetFiles(folder, "*.yarn").ToDictionary(p => Path.GetFileName(p)!, p => ScriptFile.Load(p).Text);
     }
 }

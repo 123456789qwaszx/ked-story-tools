@@ -13,6 +13,7 @@ st remove <경로> <LineId> --card <출처>
 st replace <경로> <주소> <커맨드> [인자…]
 st delay  <경로> <주소> <길이>
 st gap    <경로> <LineId> <앵커> <길이>    (길이 대신 --clear)
+st compose <연출 층 폴더> [--dialogue <대사 층>] [--out <게임 폴더>] [--force]
 공통: --json · --dry-run · --specs <command-specs.json>
 ```
 
@@ -95,6 +96,31 @@ $ st cards 대본폴더 --line ln_abc --catalog ../ked-vn-workspace/catalog
 표지의 마지막 커맨드를 빼면 받아들이되 알린다 — 표지가 대사 글에 남는다(원문 검사의 경고).
 
 값의 뜻(그 표정 · 모션 · 슬롯이 있는가, 거리 · 배율의 꼴)은 검사하지 않는다 — 런타임의 파서가 읽을 때 드러난다. 이름 인자의 후보는 K4에서 붙는다.
+
+## 합치기 — 대사 층과 연출 층 (K8 · 2026-11-28)
+
+설계는 [`PLAN.md`](PLAN.md) §2.5. 대사는 ked-story-director가 내는 대사 층(`exported/yarn`)에, 연출은 이 툴이 고치는 연출 층(`staging/`)에 있다. `st compose`가 둘을 **줄 ID로** 맞물려 게임 폴더에 완성본을 쓴다 — 런타임은 그 파일 하나만 읽는다.
+
+```
+st compose stories/eunseol/staging --out runtime/Assets/Dialogue/Story/eunseol    # 처음 — 짝을 준다
+st compose stories/eunseol/staging                                               # 다음부터
+st compose stories/eunseol/staging --dry-run                                     # 무엇이 바뀔지만
+```
+
+| | |
+|---|---|
+| 짝 | 연출 층 폴더의 `compose.json` — `{ "dialogue": "../exported/yarn", "out": "../../../runtime/Assets/Dialogue/Story/eunseol" }`. 연출 층 폴더에서 본 상대 경로다. `--dialogue` · `--out`으로 주면 이번에 쓰고 설정에 적는다(`--dry-run`이면 적지 않는다). `dialogue`를 적지 않으면 `../exported/yarn` |
+| 쓰는 것 | 보관소(`staging/<장면>.retired.yarn`) → 연출 층(`staging/<장면>.yarn`) → 게임 yarn의 차례로, **바이트가 다른 파일만**. 대사가 연출 층의 대사와 같으면 아무것도 쓰지 않는다 |
+| 같은 줄 | 연출 층의 줄 그대로 |
+| 글 · 화자가 바뀐 줄 | 게임 yarn에는 새 글 + 연출 층의 박자 표시와 태그(말 도중의 박자는 줄 끝으로 간다). 연출 층에는 옛 글이 남는다 — `다시 볼 것`으로 알리고 옛 글과 새 글을 보인다 |
+| 새 줄 | 연출 없이 그 자리에 — `연출 없음` |
+| 지운 줄 | 묶음과 옛 줄이 보관소로 — `보관`. 같은 줄 ID가 대사 층에 다시 나타나면 저절로 돌아온다 — `복원` |
+| 옮긴 줄 | 다른 노드 · 다른 장면으로 간 줄은 연출이 따라간다 — `옮김` |
+| 손으로 고친 게임 yarn | 마지막으로 쓴 게임 yarn의 지문을 `staging/.composed.json`에 적어 둔다. 게임 폴더의 파일이 그 지문과 다르면(기록에 없는 파일이어도) **그 파일만 멈추고** 표준 오류에 `멈춤:`으로 알린다 — 다른 장면은 쓴다. 종료 코드 1. `--force`면 덮는다. 게임 yarn은 손으로 고치지 않는다 — 대사는 디렉터에서, 연출은 연출 층에서 |
+| 거절 | 줄 ID가 한 층의 두 곳에 있다 · 합친 대본에 받은 대본에 없던 문제가 생긴다 · 대사 층에 yarn이 없다 — 아무것도 쓰지 않는다. 종료 코드 1 |
+| `--json` | `scenes` · `lines` · `notes[]`(`kind` = `review` · `noStaging` · `retired` · `restored` · `moved`, `line` · `file` · `node` · `old` · `new` · `beatsMoved`) · `files[]`(`layer` · `name` · `change` = `written` · `removed` · `held` · `reason`) · `errors[]` |
+
+보관소(`*.retired.yarn`)와 `compose.json` · `.composed.json`은 손으로 고치지 않는다.
 
 ## AI가 쓸 때
 
